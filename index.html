@@ -179,6 +179,31 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   </div>
 </div>
 
+<!-- EDIT FEEDING MODAL -->
+<div id="edit-feed-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Upraviť kŕmenie</h2>
+      <button class="close-btn" onclick="closeEditFeedModal()">✕</button>
+    </div>
+    <div class="type-toggle">
+      <button id="edit-type-formula" class="btn-small active" onclick="setEditType('formula')">Mlieko</button>
+      <button id="edit-type-ar" class="btn-small" onclick="setEditType('ar')">AR mlieko</button>
+    </div>
+    <div class="stepper">
+      <button onclick="adjustEditAmount(-30)">−</button>
+      <div class="big-num" id="edit-amount">120</div>
+      <button onclick="adjustEditAmount(30)">+</button>
+    </div>
+    <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="edit-time">
+    </div>
+    <button class="btn-primary" onclick="saveEditFeed()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="nav">
   <button onclick="showView('home')" id="nav-home" class="active">
@@ -358,6 +383,7 @@ function renderHistory(){
       html += '<span class="feed-time">'+fmt(d)+'</span>';
       html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
       html += '<span class="feed-amount">'+f.amount+' ml</span>';
+      html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
       html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
       html += '</div>';
     });
@@ -515,7 +541,7 @@ function renderTrends(){
   let whtml = '';
   const sortedW = [...weights].sort((a,b)=>b.timestamp-a.timestamp);
   sortedW.forEach(w=>{
-    whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b> <button class="delete-btn" onclick="deleteWeight('+w.id+')">✕</button></span></div>';
+    whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b> <button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditWeight('+w.id+')">✎</button> <button class="delete-btn" onclick="deleteWeight('+w.id+')">✕</button></span></div>';
   });
   document.getElementById('weight-list').innerHTML = whtml || '<p style="color:var(--muted);font-size:14px">Žiadne záznamy váhy</p>';
 }
@@ -573,10 +599,67 @@ function deleteWeight(id){
   renderTrends();
 }
 
+// ===== EDIT FEEDING =====
+let editFeedId = null;
+let editType = 'formula';
+let editAmount = 120;
+
+function openEditFeedModal(id){
+  const f = feeds.find(x=>x.id===id);
+  if(!f) return;
+  editFeedId = id;
+  editType = f.type;
+  editAmount = f.amount;
+  document.getElementById('edit-amount').textContent = editAmount;
+  const d = new Date(f.timestamp);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('edit-time').value = d.toISOString().slice(0,16);
+  updateEditTypeButtons();
+  document.getElementById('edit-feed-modal').classList.add('active');
+}
+function closeEditFeedModal(){document.getElementById('edit-feed-modal').classList.remove('active')}
+
+function setEditType(t){
+  editType = t;
+  updateEditTypeButtons();
+}
+function updateEditTypeButtons(){
+  const f=document.getElementById('edit-type-formula'), a=document.getElementById('edit-type-ar');
+  f.className = 'btn-small'+(editType==='formula'?' active':'');
+  a.className = 'btn-small'+(editType==='ar'?' active-ar':'');
+}
+function adjustEditAmount(delta){
+  editAmount = Math.max(10, Math.min(300, editAmount+delta));
+  document.getElementById('edit-amount').textContent = editAmount;
+}
+function saveEditFeed(){
+  const f = feeds.find(x=>x.id===editFeedId);
+  if(!f) return;
+  f.amount = editAmount;
+  f.type = editType;
+  f.timestamp = new Date(document.getElementById('edit-time').value).getTime();
+  saveAll();
+  closeEditFeedModal();
+  renderHistory();
+}
+
 // ===== WEIGHT =====
+let editWeightId = null;
+
 function openWeightModal(){
+  editWeightId = null;
   document.getElementById('weight-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('weight-input').value = '';
+  document.getElementById('weight-modal').querySelector('h2').textContent = 'Pridať váhu';
+  document.getElementById('weight-modal').classList.add('active');
+}
+function openEditWeight(id){
+  const w = weights.find(x=>x.id===id);
+  if(!w) return;
+  editWeightId = id;
+  document.getElementById('weight-input').value = w.kg;
+  document.getElementById('weight-date').value = new Date(w.timestamp).toISOString().slice(0,10);
+  document.getElementById('weight-modal').querySelector('h2').textContent = 'Upraviť váhu';
   document.getElementById('weight-modal').classList.add('active');
 }
 function closeWeightModal(){document.getElementById('weight-modal').classList.remove('active')}
@@ -585,7 +668,12 @@ function saveWeight(){
   const kg = parseFloat(document.getElementById('weight-input').value);
   const date = document.getElementById('weight-date').value;
   if(!kg||!date) return;
-  weights.push({id:Date.now(), timestamp: new Date(date).getTime(), kg});
+  if(editWeightId){
+    const w = weights.find(x=>x.id===editWeightId);
+    if(w){w.kg = kg; w.timestamp = new Date(date).getTime();}
+  } else {
+    weights.push({id:Date.now(), timestamp: new Date(date).getTime(), kg});
+  }
   saveAll();
   closeWeightModal();
   renderTrends();
