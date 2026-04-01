@@ -126,7 +126,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <h1>Trendy</h1>
   <div class="card">
     <div class="card-title">Denný príjem (7 dní)</div>
-    <div class="chart-bar" id="chart-daily"></div>
+    <canvas id="chart-canvas" width="600" height="280" style="width:100%;height:200px"></canvas>
   </div>
   <div class="card">
     <div class="card-title">Váha</div>
@@ -372,26 +372,144 @@ function renderTrends(){
   for(let i=6;i>=0;i--){
     const d = new Date(now);
     d.setDate(d.getDate()-i);
-    const dk = d.toLocaleDateString('sk-SK');
     const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const end = start + 86400000;
     const dayFeeds = feeds.filter(f=>f.timestamp>=start && f.timestamp<end);
     const total = dayFeeds.reduce((s,f)=>s+f.amount, 0);
-    days.push({label: d.getDate()+'.'+(d.getMonth()+1), total});
+    days.push({label: d.getDate()+'.'+(d.getMonth()+1), total, date: d});
   }
 
-  const maxVal = Math.max(...days.map(d=>d.total), 500);
-  let html = '';
-  days.forEach(d=>{
-    const h = Math.round(d.total/maxVal*100);
-    const color = d.total>900?'var(--red)':d.total>750?'var(--amber)':'var(--green)';
-    html += '<div class="chart-col">';
-    html += '<div class="bar" style="height:'+h+'%;background:'+color+'"></div>';
-    html += '<div class="label">'+d.label+'</div>';
-    html += '<div class="label">'+d.total+'</div>';
-    html += '</div>';
+  // Draw canvas chart
+  const canvas = document.getElementById('chart-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  // Guidelines for optimal zone
+  const ageDays = getAgeDays();
+  const g = getGuidelines(ageDays);
+  const w = getLatestWeight();
+  const optMin = w ? Math.round(w * 120) : Math.round(g.dailyMax * 0.6);
+  const optMax = w ? Math.min(Math.round(w * 170), g.dailyMax) : g.dailyMax;
+  const absMax = g.dailyMax;
+
+  // Chart dimensions
+  const padL = 42, padR = 10, padT = 20, padB = 36;
+  const cW = W - padL - padR, cH = H - padT - padB;
+  const yMax = Math.max(absMax + 100, ...days.map(d=>d.total)) ;
+  const yScale = v => padT + cH - (v / yMax * cH);
+  const barW = cW / 7 * 0.6;
+  const gap = cW / 7;
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw optimal zone
+  const zoneTop = yScale(optMax);
+  const zoneBot = yScale(optMin);
+  ctx.fillStyle = 'rgba(102, 187, 106, 0.15)';
+  ctx.fillRect(padL, zoneTop, cW, zoneBot - zoneTop);
+
+  // Zone borders (dashed)
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(102, 187, 106, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, zoneTop); ctx.lineTo(padL + cW, zoneTop);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(padL, zoneBot); ctx.lineTo(padL + cW, zoneBot);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Max limit line (red dashed)
+  const maxY = yScale(absMax);
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(239, 83, 80, 0.6)';
+  ctx.beginPath();
+  ctx.moveTo(padL, maxY); ctx.lineTo(padL + cW, maxY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Y-axis labels
+  ctx.fillStyle = '#8899aa';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(optMax + '', padL - 4, zoneTop + 4);
+  ctx.fillText(optMin + '', padL - 4, zoneBot + 4);
+  ctx.fillStyle = 'rgba(239, 83, 80, 0.8)';
+  ctx.fillText(absMax + '', padL - 4, maxY + 4);
+
+  // Draw bars + connecting line
+  const points = [];
+  days.forEach((d, i) => {
+    const x = padL + i * gap + gap / 2;
+    const barTop = yScale(d.total);
+    const barBot = yScale(0);
+
+    // Bar color based on zone
+    if(d.total > absMax) ctx.fillStyle = 'rgba(239, 83, 80, 0.8)';
+    else if(d.total > optMax) ctx.fillStyle = 'rgba(255, 167, 38, 0.8)';
+    else if(d.total >= optMin) ctx.fillStyle = 'rgba(102, 187, 106, 0.8)';
+    else if(d.total > 0) ctx.fillStyle = 'rgba(79, 195, 247, 0.6)';
+    else ctx.fillStyle = 'rgba(79, 195, 247, 0.2)';
+
+    if(d.total > 0){
+      ctx.beginPath();
+      ctx.roundRect(x - barW/2, barTop, barW, barBot - barTop, [4, 4, 0, 0]);
+      ctx.fill();
+    }
+
+    points.push({x, y: barTop});
+
+    // X-axis label
+    ctx.fillStyle = '#8899aa';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.label, x, H - padB + 14);
+
+    // Value on top of bar
+    if(d.total > 0){
+      ctx.fillStyle = '#e0e0e0';
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillText(d.total, x, barTop - 5);
+    }
   });
-  document.getElementById('chart-daily').innerHTML = html;
+
+  // Connecting line through bar tops
+  if(points.filter(p=>p.y < yScale(0)).length > 1){
+    ctx.strokeStyle = 'rgba(248, 164, 184, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    points.forEach(p => {
+      if(p.y >= yScale(0)) return;
+      if(!started){ctx.moveTo(p.x, p.y); started=true;}
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+
+    // Dots
+    points.forEach(p => {
+      if(p.y >= yScale(0)) return;
+      ctx.fillStyle = '#f8a4b8';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Zone legend
+  ctx.fillStyle = 'rgba(102, 187, 106, 0.4)';
+  ctx.fillRect(padL, H - 12, 8, 8);
+  ctx.fillStyle = '#8899aa';
+  ctx.font = '9px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('optimálna zóna', padL + 11, H - 5);
 
   // Weights
   let whtml = '';
