@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kŕmenie">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
+<title>Olivia - Kŕmenie</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--card:#16213e;--border:#2a3a5e;--text:#e0e0e0;--muted:#8899aa;--green:#66bb6a;--blue:#4fc3f7;--purple:#ce93d8;--amber:#ffa726;--red:#ef5350;--pink:#f8a4b8}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:0;font-size:16px;-webkit-user-select:none;user-select:none}
+.view{display:none;padding:16px 16px 100px}
+.view.active{display:block}
+h1{font-size:22px;margin-bottom:12px;text-align:center}
+h2{font-size:18px;margin-bottom:8px;color:var(--pink)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px}
+.card-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.big-num{font-size:42px;font-weight:700;text-align:center}
+.row{display:flex;gap:8px;align-items:center}
+.row.between{justify-content:space-between}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.badge.formula{background:var(--blue);color:#000}
+.badge.ar{background:var(--purple);color:#000}
+button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font-size:16px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn-primary{background:var(--green);color:#000;width:100%;font-size:18px;padding:16px}
+.btn-small{padding:10px 16px;font-size:14px;background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-small.active{border-color:var(--blue);color:var(--blue)}
+.btn-small.active-ar{border-color:var(--purple);color:var(--purple)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
+.stepper button{width:64px;height:64px;border-radius:50%;font-size:28px;background:var(--card);color:var(--text);border:2px solid var(--border)}
+.stepper button:active{background:var(--border)}
+input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
+.progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;border-radius:5px;transition:width .3s}
+.feed-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.feed-item:last-child{border:none}
+.feed-time{font-size:14px;color:var(--muted);width:50px}
+.feed-amount{font-size:18px;font-weight:700}
+.warning{background:#3e2723;border:1px solid var(--amber);color:var(--amber);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
+.warning.red{background:#3e1515;border-color:var(--red);color:var(--red)}
+.suggestion{background:#1b3a1b;border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:12px;text-align:center}
+.nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1;background:none;color:var(--muted);padding:12px 0;font-size:11px;border-radius:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.nav button.active{color:var(--pink)}
+.nav button svg{width:24px;height:24px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-end;justify-content:center}
+.modal.active{display:flex}
+.modal-content{background:var(--bg);width:100%;max-width:500px;border-radius:20px 20px 0 0;padding:24px 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-header h2{margin:0}
+.close-btn{background:var(--card);color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;padding:0}
+.day-header{font-size:14px;font-weight:700;color:var(--pink);padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+.stat-val{font-size:24px;font-weight:700}
+.stat-label{font-size:11px;color:var(--muted)}
+.delete-btn{background:none;color:var(--red);font-size:12px;padding:4px 8px;border:1px solid var(--red);border-radius:8px}
+.chart-bar{display:flex;align-items:flex-end;gap:4px;height:120px;margin:12px 0}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.chart-col .bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;transition:height .3s}
+.chart-col .label{font-size:10px;color:var(--muted)}
+.weight-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.type-toggle{display:flex;gap:8px;margin:12px 0}
+.type-toggle button{flex:1;padding:14px;font-size:15px}
+</style>
+</head>
+<body>
+
+<!-- SETUP VIEW -->
+<div id="setup" class="view">
+  <h1>🍼 Kŕmenie</h1>
+  <div class="card">
+    <label class="card-title">Meno dieťaťa</label>
+    <input type="text" id="setup-name" value="Olivia">
+  </div>
+  <div class="card">
+    <label class="card-title">Dátum narodenia</label>
+    <input type="date" id="setup-birth" value="2025-12-19">
+  </div>
+  <div class="card">
+    <label class="card-title">Váha (kg)</label>
+    <input type="number" id="setup-weight" value="3.2" step="0.1" min="1" max="15">
+  </div>
+  <button class="btn-primary" onclick="saveSetup()">Začať</button>
+</div>
+
+<!-- HOME VIEW -->
+<div id="home" class="view">
+  <h1 id="baby-header">🍼 Olivia</h1>
+  <p id="baby-age" style="text-align:center;color:var(--muted);margin-bottom:12px"></p>
+  <div id="home-warning"></div>
+  <div id="home-suggestion" class="suggestion"></div>
+  <div class="card">
+    <div class="card-title">Posledné kŕmenie</div>
+    <div class="row between">
+      <span id="last-feed-time">—</span>
+      <span id="last-feed-amount" class="feed-amount">—</span>
+      <span id="last-feed-type"></span>
+    </div>
+    <div id="last-feed-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Posledných 24 hodín</div>
+    <div class="stats-grid">
+      <div><div class="stat-val" id="stat-total">0</div><div class="stat-label">ml celkom</div></div>
+      <div><div class="stat-val" id="stat-count">0</div><div class="stat-label">kŕmení</div></div>
+      <div><div class="stat-val" id="stat-avg">0</div><div class="stat-label">ml priemer</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="daily-progress"></div></div>
+    <div id="daily-progress-text" style="font-size:12px;color:var(--muted);text-align:center"></div>
+  </div>
+  <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
+</div>
+
+<!-- HISTORY VIEW -->
+<div id="history" class="view">
+  <h1>História</h1>
+  <div id="history-list"></div>
+</div>
+
+<!-- TRENDS VIEW -->
+<div id="trends" class="view">
+  <h1>Trendy</h1>
+  <div class="card">
+    <div class="card-title">Denný príjem (7 dní)</div>
+    <div class="chart-bar" id="chart-daily"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Váha</div>
+    <div id="weight-list"></div>
+    <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
+  </div>
+</div>
+
+<!-- ADD FEEDING MODAL -->
+<div id="add-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Pridať kŕmenie</h2>
+      <button class="close-btn" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="type-toggle">
+      <button id="type-formula" class="btn-small active" onclick="setType('formula')">Mlieko</button>
+      <button id="type-ar" class="btn-small" onclick="setType('ar')">AR mlieko</button>
+    </div>
+    <div class="stepper">
+      <button onclick="adjustAmount(-30)">−</button>
+      <div class="big-num" id="add-amount">120</div>
+      <button onclick="adjustAmount(30)">+</button>
+    </div>
+    <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="add-time">
+    </div>
+    <button class="btn-primary" onclick="saveFeed()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- WEIGHT MODAL -->
+<div id="weight-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Pridať váhu</h2>
+      <button class="close-btn" onclick="closeWeightModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Váha (kg)</label>
+      <input type="number" id="weight-input" step="0.1" min="1" max="20">
+    </div>
+    <div class="card">
+      <label class="card-title">Dátum</label>
+      <input type="date" id="weight-date">
+    </div>
+    <button class="btn-primary" onclick="saveWeight()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <button onclick="showView('home')" id="nav-home" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h4v-6h6v6h4V10"/></svg>
+    Domov
+  </button>
+  <button onclick="showView('history')" id="nav-history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    História
+  </button>
+  <button onclick="showView('trends')" id="nav-trends">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20l5-8 4 4 9-12"/></svg>
+    Trendy
+  </button>
+</nav>
+
+<script>
+// ===== DATA LAYER =====
+const LS = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v))}
+};
+
+let profile = LS.get('fp_profile', null);
+let feeds = LS.get('fp_feeds', []);
+let weights = LS.get('fp_weights', []);
+
+function saveAll(){
+  LS.set('fp_profile', profile);
+  LS.set('fp_feeds', feeds);
+  LS.set('fp_weights', weights);
+}
+
+// ===== FEEDING GUIDELINES =====
+function getGuidelines(ageDays){
+  if(ageDays<=30) return {min:60,max:120,feedsMin:6,feedsMax:10,dailyMax:720};
+  if(ageDays<=60) return {min:90,max:150,feedsMin:6,feedsMax:8,dailyMax:840};
+  if(ageDays<=120) return {min:120,max:180,feedsMin:5,feedsMax:7,dailyMax:900};
+  if(ageDays<=180) return {min:150,max:210,feedsMin:4,feedsMax:6,dailyMax:960};
+  return {min:150,max:240,feedsMin:4,feedsMax:6,dailyMax:960};
+}
+
+function getAgeDays(){
+  if(!profile) return 0;
+  const birth = new Date(profile.birthDate);
+  const now = new Date();
+  return Math.floor((now - birth)/(86400000));
+}
+
+function getLatestWeight(){
+  if(weights.length===0) return null;
+  return weights.sort((a,b)=>b.timestamp-a.timestamp)[0].kg;
+}
+
+// ===== 24H STATS =====
+function get24hFeeds(){
+  const cutoff = Date.now() - 86400000;
+  return feeds.filter(f=>f.timestamp>cutoff);
+}
+
+function get24hStats(){
+  const recent = get24hFeeds();
+  const total = recent.reduce((s,f)=>s+f.amount,0);
+  const count = recent.length;
+  return {total, count, avg: count?Math.round(total/count):0};
+}
+
+// ===== SUGGESTION =====
+function getSuggestion(){
+  const ageDays = getAgeDays();
+  const g = getGuidelines(ageDays);
+  const stats = get24hStats();
+  const w = getLatestWeight();
+
+  let dailyTarget = g.dailyMax;
+  if(w) dailyTarget = Math.min(Math.round(w*150), g.dailyMax);
+
+  const remaining = Math.max(0, dailyTarget - stats.total);
+  const feedsLeft = Math.max(1, Math.round(g.feedsMin - stats.count));
+  let suggested = Math.round(remaining / feedsLeft / 30) * 30;
+  suggested = Math.max(g.min, Math.min(suggested, g.max));
+  suggested = Math.max(30, suggested);
+
+  let warning = null;
+  if(stats.total >= g.dailyMax) warning = {level:'red', text:'⚠️ Denný limit dosiahnutý! ('+stats.total+'/'+g.dailyMax+' ml)'};
+  else if(stats.total >= dailyTarget*0.9) warning = {level:'amber', text:'⚡ Blíži sa denný limit ('+stats.total+'/'+dailyTarget+' ml)'};
+  if(w && stats.total > w*180) warning = {level:'red', text:'⚠️ Prekročený limit na váhu! (max '+Math.round(w*180)+' ml/deň)'};
+
+  const lastFeed = feeds.length ? feeds.sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
+  const timeSince = lastFeed ? Date.now() - lastFeed.timestamp : null;
+  const intervalH = ageDays<=60 ? 3 : 3.5;
+
+  return {suggested, dailyTarget, warning, lastFeed, timeSince, intervalMs: intervalH*3600000, g};
+}
+
+// ===== VIEWS =====
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  const nb = document.getElementById('nav-'+id);
+  if(nb) nb.classList.add('active');
+  if(id==='home') renderHome();
+  if(id==='history') renderHistory();
+  if(id==='trends') renderTrends();
+}
+
+// ===== HOME =====
+function renderHome(){
+  const ageDays = getAgeDays();
+  const weeks = Math.floor(ageDays/7);
+  const days = ageDays%7;
+  document.getElementById('baby-header').textContent = '🍼 '+(profile?profile.name:'');
+  document.getElementById('baby-age').textContent = weeks+' týž. '+days+' dní ('+ageDays+' dní)';
+
+  const s = getSuggestion();
+  const stats = get24hStats();
+
+  // Suggestion
+  const sugEl = document.getElementById('home-suggestion');
+  let sugText = '💡 Odporúčanie: <b>'+s.suggested+' ml</b>';
+  if(s.timeSince!==null){
+    const mins = Math.round(s.timeSince/60000);
+    const nextIn = Math.max(0, Math.round((s.intervalMs - s.timeSince)/60000));
+    if(nextIn>0) sugText += '<br><small>Ďalšie kŕmenie za ~'+nextIn+' min</small>';
+    else sugText += '<br><small>Čas na kŕmenie!</small>';
+  }
+  sugEl.innerHTML = sugText;
+
+  // Warning
+  const wEl = document.getElementById('home-warning');
+  if(s.warning){
+    wEl.innerHTML = '<div class="warning'+(s.warning.level==='red'?' red':'')+'">'+s.warning.text+'</div>';
+  } else wEl.innerHTML='';
+
+  // Last feed
+  if(s.lastFeed){
+    const d = new Date(s.lastFeed.timestamp);
+    document.getElementById('last-feed-time').textContent = fmt(d);
+    document.getElementById('last-feed-amount').textContent = s.lastFeed.amount+' ml';
+    document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'Mlieko')+'</span>';
+    const mins = Math.round(s.timeSince/60000);
+    const h = Math.floor(mins/60);
+    const m = mins%60;
+    document.getElementById('last-feed-ago').textContent = 'pred '+(h>0?h+'h ':'')+m+' min';
+  }
+
+  // Stats
+  document.getElementById('stat-total').textContent = stats.total;
+  document.getElementById('stat-count').textContent = stats.count;
+  document.getElementById('stat-avg').textContent = stats.avg;
+
+  const pct = Math.min(100, Math.round(stats.total/s.dailyTarget*100));
+  const bar = document.getElementById('daily-progress');
+  bar.style.width = pct+'%';
+  bar.style.background = pct>=100?'var(--red)':pct>=85?'var(--amber)':'var(--green)';
+  document.getElementById('daily-progress-text').textContent = pct+'% z '+s.dailyTarget+' ml';
+}
+
+// ===== HISTORY =====
+function renderHistory(){
+  const sorted = [...feeds].sort((a,b)=>b.timestamp-a.timestamp);
+  const byDay = {};
+  sorted.forEach(f=>{
+    const dk = new Date(f.timestamp).toLocaleDateString('sk-SK');
+    if(!byDay[dk]) byDay[dk] = [];
+    byDay[dk].push(f);
+  });
+
+  let html = '';
+  for(const [day, items] of Object.entries(byDay)){
+    const dayTotal = items.reduce((s,f)=>s+f.amount,0);
+    html += '<div class="day-header">'+day+' — '+dayTotal+' ml ('+items.length+'×)</div>';
+    items.forEach(f=>{
+      const d = new Date(f.timestamp);
+      html += '<div class="feed-item">';
+      html += '<span class="feed-time">'+fmt(d)+'</span>';
+      html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
+      html += '<span class="feed-amount">'+f.amount+' ml</span>';
+      html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
+      html += '</div>';
+    });
+  }
+  document.getElementById('history-list').innerHTML = html || '<p style="text-align:center;color:var(--muted)">Žiadne záznamy</p>';
+}
+
+// ===== TRENDS =====
+function renderTrends(){
+  const now = new Date();
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date(now);
+    d.setDate(d.getDate()-i);
+    const dk = d.toLocaleDateString('sk-SK');
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const end = start + 86400000;
+    const dayFeeds = feeds.filter(f=>f.timestamp>=start && f.timestamp<end);
+    const total = dayFeeds.reduce((s,f)=>s+f.amount, 0);
+    days.push({label: d.getDate()+'.'+(d.getMonth()+1), total});
+  }
+
+  const maxVal = Math.max(...days.map(d=>d.total), 500);
+  let html = '';
+  days.forEach(d=>{
+    const h = Math.round(d.total/maxVal*100);
+    const color = d.total>900?'var(--red)':d.total>750?'var(--amber)':'var(--green)';
+    html += '<div class="chart-col">';
+    html += '<div class="bar" style="height:'+h+'%;background:'+color+'"></div>';
+    html += '<div class="label">'+d.label+'</div>';
+    html += '<div class="label">'+d.total+'</div>';
+    html += '</div>';
+  });
+  document.getElementById('chart-daily').innerHTML = html;
+
+  // Weights
+  let whtml = '';
+  const sortedW = [...weights].sort((a,b)=>b.timestamp-a.timestamp);
+  sortedW.forEach(w=>{
+    whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b></span></div>';
+  });
+  document.getElementById('weight-list').innerHTML = whtml || '<p style="color:var(--muted);font-size:14px">Žiadne záznamy váhy</p>';
+}
+
+// ===== ADD FEEDING =====
+let addType = 'formula';
+let addAmount = 120;
+
+function openAddModal(){
+  const s = getSuggestion();
+  addAmount = s.suggested;
+  addType = 'formula';
+  document.getElementById('add-amount').textContent = addAmount;
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('add-time').value = now.toISOString().slice(0,16);
+  updateTypeButtons();
+  document.getElementById('add-modal').classList.add('active');
+}
+function closeAddModal(){document.getElementById('add-modal').classList.remove('active')}
+
+function setType(t){
+  addType = t;
+  updateTypeButtons();
+}
+function updateTypeButtons(){
+  const f=document.getElementById('type-formula'), a=document.getElementById('type-ar');
+  f.className = 'btn-small'+(addType==='formula'?' active':'');
+  a.className = 'btn-small'+(addType==='ar'?' active-ar':'');
+}
+
+function adjustAmount(delta){
+  addAmount = Math.max(30, Math.min(300, addAmount+delta));
+  document.getElementById('add-amount').textContent = addAmount;
+}
+
+function saveFeed(){
+  const timeVal = document.getElementById('add-time').value;
+  const ts = new Date(timeVal).getTime();
+  feeds.push({id: Date.now(), timestamp: ts, amount: addAmount, type: addType});
+  saveAll();
+  closeAddModal();
+  showView('home');
+}
+
+function deleteFeed(id){
+  feeds = feeds.filter(f=>f.id!==id);
+  saveAll();
+  renderHistory();
+}
+
+// ===== WEIGHT =====
+function openWeightModal(){
+  document.getElementById('weight-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('weight-input').value = '';
+  document.getElementById('weight-modal').classList.add('active');
+}
+function closeWeightModal(){document.getElementById('weight-modal').classList.remove('active')}
+
+function saveWeight(){
+  const kg = parseFloat(document.getElementById('weight-input').value);
+  const date = document.getElementById('weight-date').value;
+  if(!kg||!date) return;
+  weights.push({id:Date.now(), timestamp: new Date(date).getTime(), kg});
+  saveAll();
+  closeWeightModal();
+  renderTrends();
+}
+
+// ===== SETUP =====
+function saveSetup(){
+  const name = document.getElementById('setup-name').value.trim() || 'Baby';
+  const birth = document.getElementById('setup-birth').value;
+  const w = parseFloat(document.getElementById('setup-weight').value);
+  if(!birth) return;
+  profile = {name, birthDate: birth, setupDone: true};
+  if(w) weights.push({id: Date.now(), timestamp: new Date(birth).getTime(), kg: w});
+  saveAll();
+  showView('home');
+}
+
+// ===== HELPERS =====
+function fmt(d){return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')}
+
+// ===== PRELOAD DATA =====
+function preloadData(){
+  if(LS.get('fp_preloaded')) return;
+
+  profile = {name:'Olivia', birthDate:'2025-12-19', setupDone:true};
+
+  const raw = [
+    ['2026-03-23 03:00',115,'formula'],['2026-03-23 06:30',150,'formula'],['2026-03-23 09:30',120,'formula'],
+    ['2026-03-23 13:15',150,'formula'],['2026-03-23 16:06',100,'formula'],['2026-03-23 18:15',100,'formula'],
+    ['2026-03-25 03:15',150,'formula'],['2026-03-25 06:30',120,'formula'],['2026-03-25 10:30',120,'formula'],
+    ['2026-03-25 13:50',120,'formula'],['2026-03-25 15:50',70,'formula'],['2026-03-25 17:55',150,'formula'],
+    ['2026-03-25 23:10',150,'ar'],
+    ['2026-03-26 03:40',150,'ar'],['2026-03-26 07:20',120,'formula'],['2026-03-26 11:15',150,'formula'],
+    ['2026-03-26 15:05',150,'formula'],['2026-03-26 17:00',90,'formula'],['2026-03-26 18:00',100,'formula'],
+    ['2026-03-27 02:00',150,'ar'],['2026-03-27 05:20',20,'ar'],['2026-03-27 07:30',135,'formula'],
+    ['2026-03-27 11:35',110,'formula'],['2026-03-27 16:00',150,'formula'],['2026-03-27 17:55',60,'formula'],
+    ['2026-03-28 00:20',150,'ar'],['2026-03-28 04:10',150,'ar'],['2026-03-28 09:10',150,'formula'],
+    ['2026-03-28 12:50',150,'formula'],['2026-03-28 15:50',120,'formula'],['2026-03-28 18:10',30,'formula'],
+    ['2026-03-28 22:10',115,'ar'],
+    ['2026-03-29 04:10',150,'ar'],['2026-03-29 08:06',135,'formula'],['2026-03-29 11:25',120,'formula'],
+    ['2026-03-29 14:40',120,'formula'],['2026-03-29 17:45',150,'formula'],['2026-03-29 19:05',30,'formula'],
+    ['2026-03-29 21:45',120,'ar'],
+    ['2026-03-30 01:42',80,'ar'],['2026-03-30 05:35',150,'ar'],['2026-03-30 08:55',140,'formula'],
+    ['2026-03-30 12:20',130,'formula'],['2026-03-30 15:35',150,'formula'],['2026-03-30 18:35',150,'formula'],
+    ['2026-03-30 23:50',150,'ar'],
+    ['2026-03-31 04:00',150,'ar'],['2026-03-31 06:15',120,'formula'],['2026-03-31 09:35',120,'formula'],
+    ['2026-03-31 13:15',150,'formula'],['2026-03-31 16:45',120,'formula'],['2026-03-31 19:00',75,'formula'],
+    ['2026-03-31 20:15',120,'ar'],
+    ['2026-04-01 02:15',150,'ar'],['2026-04-01 05:30',150,'ar']
+  ];
+
+  feeds = raw.map((r,i)=>({id:i+1, timestamp:new Date(r[0]).getTime(), amount:r[1], type:r[2]}));
+  weights = [
+    {id:1, timestamp:new Date('2025-12-19').getTime(), kg:3.2},
+    {id:2, timestamp:new Date('2026-01-15').getTime(), kg:4.0},
+    {id:3, timestamp:new Date('2026-02-15').getTime(), kg:4.8},
+    {id:4, timestamp:new Date('2026-03-15').getTime(), kg:5.5}
+  ];
+
+  saveAll();
+  LS.set('fp_preloaded', true);
+}
+
+// ===== INIT =====
+function init(){
+  preloadData();
+  profile = LS.get('fp_profile', null);
+  feeds = LS.get('fp_feeds', []);
+  weights = LS.get('fp_weights', []);
+  if(!profile || !profile.setupDone) showView('setup');
+  else showView('home');
+}
+
+// Auto-refresh home every 60s
+setInterval(()=>{
+  if(document.getElementById('home').classList.contains('active')) renderHome();
+}, 60000);
+
+// Register service worker
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+init();
+</script>
+</body>
+</html>
