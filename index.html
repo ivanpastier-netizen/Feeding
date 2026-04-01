@@ -397,7 +397,7 @@ function renderTrends(){
   let whtml = '';
   const sortedW = [...weights].sort((a,b)=>b.timestamp-a.timestamp);
   sortedW.forEach(w=>{
-    whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b></span></div>';
+    whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b> <button class="delete-btn" onclick="deleteWeight('+w.id+')">✕</button></span></div>';
   });
   document.getElementById('weight-list').innerHTML = whtml || '<p style="color:var(--muted);font-size:14px">Žiadne záznamy váhy</p>';
 }
@@ -447,6 +447,12 @@ function deleteFeed(id){
   feeds = feeds.filter(f=>f.id!==id);
   saveAll();
   renderHistory();
+}
+
+function deleteWeight(id){
+  weights = weights.filter(w=>w.id!==id);
+  saveAll();
+  renderTrends();
 }
 
 // ===== WEIGHT =====
