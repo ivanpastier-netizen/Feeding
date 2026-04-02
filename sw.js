@@ -1,4 +1,4 @@
-const CACHE_NAME = 'krmenie-v1';
+const CACHE_NAME = 'krmenie-v2';
 const ASSETS = [
   './index.html',
   './manifest.json'

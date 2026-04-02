@@ -14,6 +14,8 @@
 <meta property="og:title" content="Olivia - Kŕmenie">
 <meta property="og:description" content="Sledovanie kŕmenia bábätka">
 <title>Olivia - Kŕmenie</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#1a1a2e;--card:#16213e;--border:#2a3a5e;--text:#e0e0e0;--muted:#8899aa;--green:#66bb6a;--blue:#4fc3f7;--purple:#ce93d8;--amber:#ffa726;--red:#ef5350;--pink:#f8a4b8}
@@ -75,6 +77,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .rec-table td{padding:6px 4px;border-bottom:1px solid var(--border)}
 .rec-table tr.current{background:rgba(248,164,184,0.15);border-radius:8px}
 .rec-table tr.future{color:var(--muted)}
+.sync-status{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sync-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sync-dot.off{background:var(--muted)}
+.sync-code-display{font-family:monospace;font-size:24px;font-weight:700;letter-spacing:4px;text-align:center;padding:12px;background:var(--bg);border-radius:12px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -160,6 +167,25 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <label style="font-size:13px;color:var(--muted);display:block;margin-bottom:4px">Dátum narodenia</label>
     <input type="date" id="settings-birth">
     <button class="btn-primary" onclick="saveSettings()" style="margin-top:12px">Uložiť profil</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Cloud Sync</div>
+    <div class="sync-status">
+      <div class="sync-dot off" id="sync-dot"></div>
+      <span id="sync-status-text" style="font-size:14px;color:var(--muted)">Odpojené</span>
+    </div>
+    <div id="sync-connected" style="display:none">
+      <div class="sync-code-display" id="sync-code-display"></div>
+      <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="disconnectSync()">Odpojiť sync</button>
+    </div>
+    <div id="sync-disconnected">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Synchronizujte dáta medzi zariadeniami. Vygenerujte kód na jednom zariadení a zadajte ho na druhom.</p>
+      <button class="btn-small" onclick="generateAndConnect()" style="width:100%;margin-bottom:8px">Vygenerovať nový kód</button>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="text" id="sync-code-input" maxlength="6" placeholder="Zadať kód" style="flex:1;text-transform:uppercase;font-family:monospace;font-size:18px;letter-spacing:2px;text-align:center">
+        <button class="btn-primary" onclick="connectWithCode()" style="width:auto;padding:14px 20px">Pripojiť</button>
+      </div>
+    </div>
   </div>
   <div class="card">
     <div class="card-title">Záloha dát</div>
@@ -281,6 +307,173 @@ function saveAll(){
   LS.set('fp_profile', profile);
   LS.set('fp_feeds', feeds);
   LS.set('fp_weights', weights);
+  pushToFirebase();
+}
+
+// ===== FIREBASE SYNC =====
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBcobHDOoOACqN3-OrHJdgZfn5Bu-XvU0k",
+  authDomain: "feeder-bf87c.firebaseapp.com",
+  databaseURL: "https://feeder-bf87c-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "feeder-bf87c",
+  storageBucket: "feeder-bf87c.firebasestorage.app",
+  messagingSenderId: "813390097242",
+  appId: "1:813390097242:web:e2ccf3295a03ee805ce163"
+};
+
+let fbApp = null;
+let fbDb = null;
+let syncRef = null;
+let syncListener = null;
+let isSyncing = false;
+let syncCode = LS.get('fp_sync_code', null);
+
+function initFirebase(){
+  try {
+    if(typeof firebase === 'undefined') return;
+    fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.database();
+    if(syncCode) connectSync(syncCode);
+  } catch(e){ console.warn('Firebase init failed:', e); }
+}
+
+function connectSync(code){
+  code = code.toUpperCase().trim();
+  if(code.length < 4) return;
+  syncCode = code;
+  LS.set('fp_sync_code', syncCode);
+  if(!fbDb) return;
+
+  // Detach previous listener
+  if(syncRef && syncListener) syncRef.off('value', syncListener);
+
+  syncRef = fbDb.ref('sync/' + syncCode);
+
+  // Push current data first, then listen
+  pushToFirebase();
+
+  syncListener = syncRef.on('value', function(snapshot){
+    var data = snapshot.val();
+    if(!data || isSyncing) return;
+    isSyncing = true;
+    try {
+      // Merge feeds by id (union, latest timestamp wins for dupes)
+      if(data.feeds){
+        var remoteFeeds = data.feeds;
+        var feedMap = {};
+        feeds.forEach(function(f){ feedMap[f.id] = f; });
+        remoteFeeds.forEach(function(f){
+          if(!feedMap[f.id] || f.timestamp > feedMap[f.id].timestamp){
+            feedMap[f.id] = f;
+          }
+        });
+        feeds = Object.values(feedMap).sort(function(a,b){ return b.timestamp - a.timestamp; });
+      }
+
+      // Merge weights by id
+      if(data.weights){
+        var remoteWeights = data.weights;
+        var weightMap = {};
+        weights.forEach(function(w){ weightMap[w.id] = w; });
+        remoteWeights.forEach(function(w){
+          if(!weightMap[w.id] || w.timestamp > weightMap[w.id].timestamp){
+            weightMap[w.id] = w;
+          }
+        });
+        weights = Object.values(weightMap).sort(function(a,b){ return b.timestamp - a.timestamp; });
+      }
+
+      // Profile: use remote if newer
+      if(data.profile && data.lastModified){
+        var localMod = LS.get('fp_last_modified', 0);
+        if(data.lastModified > localMod){
+          profile = data.profile;
+        }
+      }
+
+      // Save merged data locally
+      LS.set('fp_profile', profile);
+      LS.set('fp_feeds', feeds);
+      LS.set('fp_weights', weights);
+
+      // Re-render current view
+      var activeView = document.querySelector('.view.active');
+      if(activeView){
+        var id = activeView.id;
+        if(id === 'home') renderHome();
+        else if(id === 'history') renderHistory();
+        else if(id === 'trends') renderTrends();
+        else if(id === 'settings') renderSettings();
+      }
+    } catch(e){ console.warn('Sync merge error:', e); }
+    isSyncing = false;
+  });
+
+  renderSyncUI();
+}
+
+function disconnectSync(){
+  if(syncRef && syncListener) syncRef.off('value', syncListener);
+  syncRef = null;
+  syncListener = null;
+  syncCode = null;
+  LS.set('fp_sync_code', null);
+  renderSyncUI();
+}
+
+function pushToFirebase(){
+  if(!syncRef || isSyncing) return;
+  var now = Date.now();
+  LS.set('fp_last_modified', now);
+  syncRef.set({
+    profile: profile,
+    feeds: feeds,
+    weights: weights,
+    lastModified: now
+  }).catch(function(e){ console.warn('Firebase push failed:', e); });
+}
+
+function generateSyncCode(){
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for(var i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+function generateAndConnect(){
+  var code = generateSyncCode();
+  connectSync(code);
+}
+
+function connectWithCode(){
+  var input = document.getElementById('sync-code-input');
+  var code = (input.value || '').toUpperCase().trim();
+  if(code.length < 4){ alert('Kód musí mať aspoň 4 znaky.'); return; }
+  connectSync(code);
+  input.value = '';
+}
+
+function renderSyncUI(){
+  var dot = document.getElementById('sync-dot');
+  var text = document.getElementById('sync-status-text');
+  var connDiv = document.getElementById('sync-connected');
+  var discDiv = document.getElementById('sync-disconnected');
+  var codeDisp = document.getElementById('sync-code-display');
+
+  if(syncCode && syncRef){
+    dot.className = 'sync-dot on';
+    text.textContent = 'Pripojené';
+    text.style.color = 'var(--green)';
+    connDiv.style.display = 'block';
+    discDiv.style.display = 'none';
+    codeDisp.textContent = syncCode;
+  } else {
+    dot.className = 'sync-dot off';
+    text.textContent = 'Odpojené';
+    text.style.color = 'var(--muted)';
+    connDiv.style.display = 'none';
+    discDiv.style.display = 'block';
+  }
 }
 
 // ===== FEEDING GUIDELINES =====
@@ -976,6 +1169,7 @@ function renderSettings(){
     document.getElementById('settings-name').value = profile.name || '';
     document.getElementById('settings-birth').value = profile.birthDate || '';
   }
+  renderSyncUI();
 }
 
 function saveSettings(){
@@ -1033,10 +1227,13 @@ function importData(){
 function resetData(){
   if(!confirm('Naozaj chcete vymazať všetky dáta? Táto akcia sa nedá vrátiť.')) return;
   if(!confirm('Ste si istý? Všetky kŕmenia a váhy budú vymazané.')) return;
+  disconnectSync();
   localStorage.removeItem('fp_profile');
   localStorage.removeItem('fp_feeds');
   localStorage.removeItem('fp_weights');
   localStorage.removeItem('fp_preloaded');
+  localStorage.removeItem('fp_sync_code');
+  localStorage.removeItem('fp_last_modified');
   profile = null;
   feeds = [];
   weights = [];
@@ -1104,6 +1301,7 @@ function init(){
   profile = LS.get('fp_profile', null);
   feeds = LS.get('fp_feeds', []);
   weights = LS.get('fp_weights', []);
+  initFirebase();
   if(!profile || !profile.setupDone) showView('setup');
   else showView('home');
 }
