@@ -179,7 +179,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <div class="card">
     <div class="card-title">Váha</div>
     <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
-    <div id="weight-list" style="margin-top:8px"></div>
+    <button class="btn-small" onclick="toggleWeightList()" style="margin-top:8px;width:100%;color:var(--muted)" id="weight-toggle-btn">Zobraziť záznamy</button>
+    <div id="weight-list" style="display:none;margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
   </div>
   <div class="card">
@@ -1437,6 +1438,18 @@ function saveEditFeed(){
 
 // ===== WEIGHT =====
 let editWeightId = null;
+
+function toggleWeightList(){
+  var list = document.getElementById('weight-list');
+  var btn = document.getElementById('weight-toggle-btn');
+  if(list.style.display === 'none'){
+    list.style.display = 'block';
+    btn.textContent = 'Skryť záznamy';
+  } else {
+    list.style.display = 'none';
+    btn.textContent = 'Zobraziť záznamy';
+  }
+}
 
 function openWeightModal(){
   if(!requireSync()) return;
