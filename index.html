@@ -349,14 +349,19 @@ function connectSync(code){
 
   syncRef = fbDb.ref('sync/' + syncCode);
 
-  // Push current data first, then listen
-  pushToFirebase();
-
+  // Do NOT push first — listen and let remote data arrive
   syncListener = syncRef.on('value', function(snapshot){
     var data = snapshot.val();
-    if(!data || isSyncing) return;
+    if(isSyncing) return;
     isSyncing = true;
     try {
+      if(!data){
+        // No remote data yet — first device, push local data
+        isSyncing = false;
+        pushToFirebase();
+        renderSyncUI();
+        return;
+      }
       var localMod = LS.get('fp_last_modified', 0);
       // Only accept remote data if it's newer than local
       if(data.lastModified && data.lastModified > localMod){
