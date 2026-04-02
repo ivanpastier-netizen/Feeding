@@ -43,7 +43,8 @@ button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font
 input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
 .progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
 .progress-fill{height:100%;border-radius:5px;transition:width .3s}
-.feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.feed-item:active{opacity:0.6}
 .feed-item:last-child{border:none}
 .feed-time{font-size:14px;color:var(--muted);min-width:42px}
 .feed-amount{font-size:16px;font-weight:700;flex:1}
@@ -286,6 +287,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="date" id="weight-date">
     </div>
     <button class="btn-primary" onclick="saveWeight()" style="margin-top:12px">Uložiť</button>
+    <button id="delete-weight-btn" class="btn-small" style="display:none;width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditWeight()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -311,6 +313,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="datetime-local" id="edit-time">
     </div>
     <button class="btn-primary" onclick="saveEditFeed()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditFeed()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -357,6 +360,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="datetime-local" id="edit-pee-time">
     </div>
     <button class="btn-primary" onclick="saveEditPee()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditPee()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -429,6 +433,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="datetime-local" id="edit-poop-time">
     </div>
     <button class="btn-primary" onclick="saveEditPoop()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditPoop()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -872,35 +877,26 @@ function renderHistory(){
       var d = new Date(item.ts);
       if(item.type === 'feed'){
         var f = item.data;
-        html += '<div class="feed-item">';
+        html += '<div class="feed-item" onclick="openEditFeedModal('+f.id+')">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
         html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'🍼')+'</span>';
         html += '<span class="feed-amount">'+f.amount+' ml</span>';
-        html += '<div class="feed-actions">';
-        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
-        html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
-        html += '</div></div>';
+        html += '</div>';
       } else if(item.type === 'poop'){
         var p = item.data;
-        html += '<div class="feed-item">';
+        html += '<div class="feed-item" onclick="openEditPoopModal('+p.id+')">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
         html += '<span class="badge poop">💩</span>';
         html += '<span class="poop-dot" style="background:'+p.color+'"></span>';
         html += '<span class="feed-amount">'+(POOP_SIZE_LABELS[p.size]||p.size)+'</span>';
-        html += '<div class="feed-actions">';
-        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPoopModal('+p.id+')">✎</button>';
-        html += '<button class="delete-btn" onclick="deletePoop('+p.id+')">✕</button>';
-        html += '</div></div>';
+        html += '</div>';
       } else {
         var pe = item.data;
-        html += '<div class="feed-item">';
+        html += '<div class="feed-item" onclick="openEditPeeModal('+pe.id+')">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
         html += '<span class="badge pee">💧</span>';
         html += '<span class="feed-amount">'+(PEE_LABELS[pe.wetness]||pe.wetness)+wetnessDrops(pe.wetness)+'</span>';
-        html += '<div class="feed-actions">';
-        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPeeModal('+pe.id+')">✎</button>';
-        html += '<button class="delete-btn" onclick="deletePee('+pe.id+')">✕</button>';
-        html += '</div></div>';
+        html += '</div>';
       }
     });
   }
@@ -1435,6 +1431,14 @@ function saveEditFeed(){
   closeEditFeedModal();
   renderHistory();
 }
+function deleteEditFeed(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať toto kŕmenie?')) return;
+  feeds = feeds.filter(function(f){ return f.id !== editFeedId; });
+  saveAll();
+  closeEditFeedModal();
+  renderHistory();
+}
 
 // ===== WEIGHT =====
 let editWeightId = null;
@@ -1457,6 +1461,7 @@ function openWeightModal(){
   document.getElementById('weight-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('weight-input').value = '';
   document.getElementById('weight-modal').querySelector('h2').textContent = 'Pridať váhu';
+  document.getElementById('delete-weight-btn').style.display = 'none';
   document.getElementById('weight-modal').classList.add('active');
 }
 function openEditWeight(id){
@@ -1466,6 +1471,7 @@ function openEditWeight(id){
   document.getElementById('weight-input').value = w.kg;
   document.getElementById('weight-date').value = new Date(w.timestamp).toISOString().slice(0,10);
   document.getElementById('weight-modal').querySelector('h2').textContent = 'Upraviť váhu';
+  document.getElementById('delete-weight-btn').style.display = 'block';
   document.getElementById('weight-modal').classList.add('active');
 }
 function closeWeightModal(){document.getElementById('weight-modal').classList.remove('active')}
@@ -1481,6 +1487,14 @@ function saveWeight(){
   } else {
     weights.push({id:Date.now(), timestamp: new Date(date).getTime(), kg});
   }
+  saveAll();
+  closeWeightModal();
+  renderTrends();
+}
+function deleteEditWeight(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam váhy?')) return;
+  weights = weights.filter(function(w){ return w.id !== editWeightId; });
   saveAll();
   closeWeightModal();
   renderTrends();
@@ -1570,6 +1584,14 @@ function saveEditPee(){
   if(!p) return;
   p.wetness = editPeeWetness;
   p.timestamp = new Date(document.getElementById('edit-pee-time').value).getTime();
+  saveAll();
+  closeEditPeeModal();
+  renderHistory();
+}
+function deleteEditPee(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam?')) return;
+  pees = pees.filter(function(p){ return p.id !== editPeeId; });
   saveAll();
   closeEditPeeModal();
   renderHistory();
@@ -1681,6 +1703,14 @@ function saveEditPoop(){
   p.color = editPoopColor;
   p.size = editPoopSize;
   p.timestamp = new Date(document.getElementById('edit-poop-time').value).getTime();
+  saveAll();
+  closeEditPoopModal();
+  renderHistory();
+}
+function deleteEditPoop(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam?')) return;
+  poops = poops.filter(function(p){ return p.id !== editPoopId; });
   saveAll();
   closeEditPoopModal();
   renderHistory();
