@@ -82,6 +82,14 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .sync-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
 .sync-dot.off{background:var(--muted)}
 .sync-code-display{font-family:monospace;font-size:24px;font-weight:700;letter-spacing:4px;text-align:center;padding:12px;background:var(--bg);border-radius:12px;margin-bottom:12px}
+.poop-colors{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.poop-color{width:44px;height:44px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:border-color .2s}
+.poop-color.selected{border-color:var(--text);box-shadow:0 0 8px rgba(255,255,255,0.3)}
+.poop-sizes{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.poop-sizes button{flex:1}
+.poop-sizes button.active{border-color:var(--amber);color:var(--amber)}
+.badge.poop{background:var(--amber);color:#000}
+.poop-dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px}
 </style>
 </head>
 <body>
@@ -129,7 +137,16 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <div class="progress-bar"><div class="progress-fill" id="daily-progress"></div></div>
     <div id="daily-progress-text" style="font-size:12px;color:var(--muted);text-align:center"></div>
   </div>
+  <div id="last-poop-card" class="card" style="display:none">
+    <div class="card-title">Posledné hovienko</div>
+    <div class="row between">
+      <span id="last-poop-time">—</span>
+      <span id="last-poop-info"></span>
+    </div>
+    <div id="last-poop-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
+  </div>
   <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
+  <button class="btn-primary" onclick="openPoopModal()" style="margin-top:8px;background:var(--amber)">💩 Kakošák</button>
 </div>
 
 <!-- HISTORY VIEW -->
@@ -150,6 +167,10 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
     <div id="weight-list" style="margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
+  </div>
+  <div class="card">
+    <div class="card-title">💩 Kakošák (7 dní)</div>
+    <div id="poop-stats"></div>
   </div>
   <div class="card">
     <div class="card-title">Odporúčania podľa veku</div>
@@ -274,6 +295,78 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   </div>
 </div>
 
+<!-- POOP MODAL -->
+<div id="poop-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💩 Kakošák</h2>
+      <button class="close-btn" onclick="closePoopModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Farba</label>
+      <div class="poop-colors" id="poop-color-picker">
+        <div class="poop-color selected" style="background:#F4D03F" data-color="#F4D03F" onclick="selectPoopColor(this)" title="Žltá"></div>
+        <div class="poop-color" style="background:#D4AC0D" data-color="#D4AC0D" onclick="selectPoopColor(this)" title="Horčicová"></div>
+        <div class="poop-color" style="background:#BA8C3B" data-color="#BA8C3B" onclick="selectPoopColor(this)" title="Svetlohnedá"></div>
+        <div class="poop-color" style="background:#8B6914" data-color="#8B6914" onclick="selectPoopColor(this)" title="Hnedá"></div>
+        <div class="poop-color" style="background:#5D4037" data-color="#5D4037" onclick="selectPoopColor(this)" title="Tmavohnedá"></div>
+        <div class="poop-color" style="background:#5B7D2E" data-color="#5B7D2E" onclick="selectPoopColor(this)" title="Zelená"></div>
+        <div class="poop-color" style="background:#E67E22" data-color="#E67E22" onclick="selectPoopColor(this)" title="Oranžová"></div>
+        <div class="poop-color" style="background:#F5F5DC;border:1px solid var(--muted)" data-color="#F5F5DC" onclick="selectPoopColor(this)" title="Bledá"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Veľkosť</label>
+      <div class="poop-sizes">
+        <button class="btn-small" onclick="selectPoopSize('small')">Malé</button>
+        <button class="btn-small active" onclick="selectPoopSize('medium')">Stredné</button>
+        <button class="btn-small" onclick="selectPoopSize('large')">Veľké</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="poop-time">
+    </div>
+    <button class="btn-primary" onclick="savePoop()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- EDIT POOP MODAL -->
+<div id="edit-poop-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💩 Upraviť</h2>
+      <button class="close-btn" onclick="closeEditPoopModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Farba</label>
+      <div class="poop-colors" id="edit-poop-color-picker">
+        <div class="poop-color selected" style="background:#F4D03F" data-color="#F4D03F" onclick="selectEditPoopColor(this)" title="Žltá"></div>
+        <div class="poop-color" style="background:#D4AC0D" data-color="#D4AC0D" onclick="selectEditPoopColor(this)" title="Horčicová"></div>
+        <div class="poop-color" style="background:#BA8C3B" data-color="#BA8C3B" onclick="selectEditPoopColor(this)" title="Svetlohnedá"></div>
+        <div class="poop-color" style="background:#8B6914" data-color="#8B6914" onclick="selectEditPoopColor(this)" title="Hnedá"></div>
+        <div class="poop-color" style="background:#5D4037" data-color="#5D4037" onclick="selectEditPoopColor(this)" title="Tmavohnedá"></div>
+        <div class="poop-color" style="background:#5B7D2E" data-color="#5B7D2E" onclick="selectEditPoopColor(this)" title="Zelená"></div>
+        <div class="poop-color" style="background:#E67E22" data-color="#E67E22" onclick="selectEditPoopColor(this)" title="Oranžová"></div>
+        <div class="poop-color" style="background:#F5F5DC;border:1px solid var(--muted)" data-color="#F5F5DC" onclick="selectEditPoopColor(this)" title="Bledá"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Veľkosť</label>
+      <div class="poop-sizes" id="edit-poop-sizes">
+        <button class="btn-small" onclick="selectEditPoopSize('small')">Malé</button>
+        <button class="btn-small active" onclick="selectEditPoopSize('medium')">Stredné</button>
+        <button class="btn-small" onclick="selectEditPoopSize('large')">Veľké</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="edit-poop-time">
+    </div>
+    <button class="btn-primary" onclick="saveEditPoop()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
 <!-- BOTTOM NAV -->
 <nav class="nav">
   <button onclick="showView('home')" id="nav-home" class="active">
@@ -304,11 +397,13 @@ const LS = {
 let profile = LS.get('fp_profile', null);
 let feeds = LS.get('fp_feeds', []);
 let weights = LS.get('fp_weights', []);
+let poops = LS.get('fp_poops', []);
 
 function saveAll(){
   LS.set('fp_profile', profile);
   LS.set('fp_feeds', feeds);
   LS.set('fp_weights', weights);
+  LS.set('fp_poops', poops);
   pushToFirebase();
 }
 
@@ -372,10 +467,13 @@ function connectSync(code){
         else feeds = [];
         if(data.weights) weights = data.weights;
         else weights = [];
+        if(data.poops) poops = data.poops;
+        else poops = [];
 
         LS.set('fp_profile', profile);
         LS.set('fp_feeds', feeds);
         LS.set('fp_weights', weights);
+        LS.set('fp_poops', poops);
         LS.set('fp_last_modified', data.lastModified);
 
         // Re-render current view
@@ -412,6 +510,7 @@ function pushToFirebase(){
     profile: profile,
     feeds: feeds,
     weights: weights,
+    poops: poops,
     lastModified: now
   }).catch(function(e){ console.warn('Firebase push failed:', e); });
 }
@@ -629,31 +728,75 @@ function renderHome(){
   bar.style.width = pct+'%';
   bar.style.background = pct>=100?'var(--red)':pct>=85?'var(--amber)':'var(--green)';
   document.getElementById('daily-progress-text').textContent = pct+'% z '+s.dailyTarget+' ml';
+
+  // Last poop
+  var sortedPoops = [...poops].sort(function(a,b){ return b.timestamp - a.timestamp; });
+  var lastPoop = sortedPoops[0];
+  var poopCard = document.getElementById('last-poop-card');
+  if(lastPoop){
+    poopCard.style.display = 'block';
+    var pd = new Date(lastPoop.timestamp);
+    document.getElementById('last-poop-time').textContent = pd.toLocaleDateString('sk-SK')+' '+fmt(pd);
+    document.getElementById('last-poop-info').innerHTML = '<span class="poop-dot" style="background:'+lastPoop.color+'"></span> '+(POOP_SIZE_LABELS[lastPoop.size]||lastPoop.size);
+    var pmins = Math.round((Date.now() - lastPoop.timestamp)/60000);
+    if(pmins < 60) document.getElementById('last-poop-ago').textContent = 'pred '+pmins+' min';
+    else {
+      var ph = Math.floor(pmins/60);
+      var pm = pmins%60;
+      document.getElementById('last-poop-ago').textContent = 'pred '+ph+'h '+pm+' min';
+    }
+  } else {
+    poopCard.style.display = 'none';
+  }
 }
 
 // ===== HISTORY =====
 function renderHistory(){
-  const sorted = [...feeds].sort((a,b)=>b.timestamp-a.timestamp);
-  const byDay = {};
-  sorted.forEach(f=>{
-    const dk = new Date(f.timestamp).toLocaleDateString('sk-SK');
+  // Merge feeds and poops into a single timeline
+  var allItems = [];
+  feeds.forEach(function(f){ allItems.push({type:'feed', data:f, ts:f.timestamp}); });
+  poops.forEach(function(p){ allItems.push({type:'poop', data:p, ts:p.timestamp}); });
+  allItems.sort(function(a,b){ return b.ts - a.ts; });
+
+  var byDay = {};
+  allItems.forEach(function(item){
+    var dk = new Date(item.ts).toLocaleDateString('sk-SK');
     if(!byDay[dk]) byDay[dk] = [];
-    byDay[dk].push(f);
+    byDay[dk].push(item);
   });
 
-  let html = '';
-  for(const [day, items] of Object.entries(byDay)){
-    const dayTotal = items.reduce((s,f)=>s+f.amount,0);
-    html += '<div class="day-header">'+day+' — '+dayTotal+' ml ('+items.length+'×)</div>';
-    items.forEach(f=>{
-      const d = new Date(f.timestamp);
-      html += '<div class="feed-item">';
-      html += '<span class="feed-time">'+fmt(d)+'</span>';
-      html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
-      html += '<span class="feed-amount">'+f.amount+' ml</span>';
-      html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
-      html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
-      html += '</div>';
+  var html = '';
+  for(var day in byDay){
+    var items = byDay[day];
+    var dayFeeds = items.filter(function(i){ return i.type==='feed'; });
+    var dayPoops = items.filter(function(i){ return i.type==='poop'; });
+    var dayTotal = dayFeeds.reduce(function(s,i){ return s+i.data.amount; },0);
+    var headerParts = [];
+    if(dayFeeds.length) headerParts.push(dayTotal+' ml ('+dayFeeds.length+'×)');
+    if(dayPoops.length) headerParts.push('💩 '+dayPoops.length+'×');
+    html += '<div class="day-header">'+day+' — '+headerParts.join(' | ')+'</div>';
+    items.forEach(function(item){
+      var d = new Date(item.ts);
+      if(item.type === 'feed'){
+        var f = item.data;
+        html += '<div class="feed-item">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
+        html += '<span class="feed-amount">'+f.amount+' ml</span>';
+        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
+        html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
+        html += '</div>';
+      } else {
+        var p = item.data;
+        html += '<div class="feed-item">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge poop">💩</span>';
+        html += '<span class="poop-dot" style="background:'+p.color+'"></span>';
+        html += '<span class="feed-amount">'+(POOP_SIZE_LABELS[p.size]||p.size)+'</span>';
+        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPoopModal('+p.id+')">✎</button>';
+        html += '<button class="delete-btn" onclick="deletePoop('+p.id+')">✕</button>';
+        html += '</div>';
+      }
     });
   }
   document.getElementById('history-list').innerHTML = html || '<p style="text-align:center;color:var(--muted)">Žiadne záznamy</p>';
@@ -1006,6 +1149,50 @@ function renderWeightChart(){
     const d = new Date(w.timestamp);
     ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
   });
+
+  renderPoopStats();
+}
+
+// Poop stats (7 days)
+function renderPoopStats(){
+  var now = new Date();
+  var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">';
+  var totalWeek = 0;
+  for(var i=6;i>=0;i--){
+    var d = new Date(now);
+    d.setDate(d.getDate()-i);
+    var start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var end = start + 86400000;
+    var dayPoops = poops.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    totalWeek += dayPoops.length;
+    var label = d.getDate()+'.'+(d.getMonth()+1);
+    var count = dayPoops.length;
+    html += '<div style="text-align:center;min-width:36px">';
+    html += '<div style="font-size:11px;color:var(--muted)">'+label+'</div>';
+    html += '<div style="font-size:18px;font-weight:700">'+(count > 0 ? '💩'.repeat(Math.min(count,3)) + (count>3?' +':'') : '—')+'</div>';
+    html += '<div style="font-size:12px;color:var(--muted)">'+count+'</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<div style="text-align:center;font-size:14px;color:var(--muted)">Celkom za 7 dní: <b style="color:var(--text)">'+totalWeek+'</b></div>';
+
+  // Color distribution
+  var colorCounts = {};
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate()-6);
+  weekStart.setHours(0,0,0,0);
+  var weekPoops = poops.filter(function(p){ return p.timestamp >= weekStart.getTime(); });
+  weekPoops.forEach(function(p){
+    colorCounts[p.color] = (colorCounts[p.color]||0) + 1;
+  });
+  if(Object.keys(colorCounts).length > 0){
+    html += '<div style="display:flex;gap:6px;justify-content:center;margin-top:8px">';
+    for(var c in colorCounts){
+      html += '<div style="text-align:center"><span class="poop-dot" style="background:'+c+';width:20px;height:20px"></span><div style="font-size:11px;color:var(--muted)">'+colorCounts[c]+'×</div></div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('poop-stats').innerHTML = html;
 }
 
 // ===== ADD FEEDING =====
@@ -1153,6 +1340,115 @@ function saveWeight(){
   renderTrends();
 }
 
+// ===== POOP TRACKER (KAKOŠÁK) =====
+const POOP_SIZE_LABELS = {small:'Malé', medium:'Stredné', large:'Veľké'};
+const POOP_SIZE_EMOJI = {small:'💩', medium:'💩💩', large:'💩💩💩'};
+let addPoopColor = '#F4D03F';
+let addPoopSize = 'medium';
+let editPoopId = null;
+let editPoopColor = '#F4D03F';
+let editPoopSize = 'medium';
+
+function openPoopModal(){
+  if(!requireSync()) return;
+  addPoopColor = '#F4D03F';
+  addPoopSize = 'medium';
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('poop-time').value = now.toISOString().slice(0,16);
+  // Reset color selection
+  document.querySelectorAll('#poop-color-picker .poop-color').forEach(function(el){
+    el.classList.toggle('selected', el.dataset.color === addPoopColor);
+  });
+  // Reset size selection
+  document.querySelectorAll('#poop-modal .poop-sizes button').forEach(function(btn, i){
+    btn.className = 'btn-small' + (i === 1 ? ' active' : '');
+  });
+  document.getElementById('poop-modal').classList.add('active');
+}
+function closePoopModal(){document.getElementById('poop-modal').classList.remove('active')}
+
+function selectPoopColor(el){
+  addPoopColor = el.dataset.color;
+  document.querySelectorAll('#poop-color-picker .poop-color').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function selectPoopSize(size){
+  addPoopSize = size;
+  var btns = document.querySelectorAll('#poop-modal .poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(size === 'small') btns[0].className = 'btn-small active';
+  else if(size === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+}
+
+function savePoop(){
+  if(!requireSync()) return;
+  var timeVal = document.getElementById('poop-time').value;
+  var ts = new Date(timeVal).getTime();
+  poops.push({id: Date.now(), timestamp: ts, color: addPoopColor, size: addPoopSize});
+  saveAll();
+  closePoopModal();
+  showView('home');
+}
+
+function deletePoop(id){
+  if(!requireSync()) return;
+  poops = poops.filter(function(p){ return p.id !== id; });
+  saveAll();
+  renderHistory();
+}
+
+function openEditPoopModal(id){
+  if(!requireSync()) return;
+  var p = poops.find(function(x){ return x.id === id; });
+  if(!p) return;
+  editPoopId = id;
+  editPoopColor = p.color;
+  editPoopSize = p.size;
+  var d = new Date(p.timestamp);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('edit-poop-time').value = d.toISOString().slice(0,16);
+  document.querySelectorAll('#edit-poop-color-picker .poop-color').forEach(function(el){
+    el.classList.toggle('selected', el.dataset.color === editPoopColor);
+  });
+  var btns = document.querySelectorAll('#edit-poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(editPoopSize === 'small') btns[0].className = 'btn-small active';
+  else if(editPoopSize === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+  document.getElementById('edit-poop-modal').classList.add('active');
+}
+function closeEditPoopModal(){document.getElementById('edit-poop-modal').classList.remove('active')}
+
+function selectEditPoopColor(el){
+  editPoopColor = el.dataset.color;
+  document.querySelectorAll('#edit-poop-color-picker .poop-color').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function selectEditPoopSize(size){
+  editPoopSize = size;
+  var btns = document.querySelectorAll('#edit-poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(size === 'small') btns[0].className = 'btn-small active';
+  else if(size === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+}
+
+function saveEditPoop(){
+  if(!requireSync()) return;
+  var p = poops.find(function(x){ return x.id === editPoopId; });
+  if(!p) return;
+  p.color = editPoopColor;
+  p.size = editPoopSize;
+  p.timestamp = new Date(document.getElementById('edit-poop-time').value).getTime();
+  saveAll();
+  closeEditPoopModal();
+  renderHistory();
+}
+
 // ===== SETUP =====
 function saveSetup(){
   const name = document.getElementById('setup-name').value.trim() || 'Baby';
@@ -1185,7 +1481,7 @@ function saveSettings(){
 }
 
 function exportData(){
-  const data = JSON.stringify({profile, feeds, weights}, null, 2);
+  const data = JSON.stringify({profile, feeds, weights, poops}, null, 2);
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(data).then(()=>alert('Dáta skopírované do schránky!')).catch(()=>fallbackCopy(data));
   } else {
@@ -1217,6 +1513,7 @@ function importData(){
     if(data.profile) profile = data.profile;
     if(data.feeds) feeds = data.feeds;
     if(data.weights) weights = data.weights;
+    if(data.poops) poops = data.poops;
     saveAll();
     alert('Dáta importované!');
     document.getElementById('import-area').style.display = 'none';
@@ -1240,12 +1537,14 @@ function resetData(){
   localStorage.removeItem('fp_profile');
   localStorage.removeItem('fp_feeds');
   localStorage.removeItem('fp_weights');
+  localStorage.removeItem('fp_poops');
   localStorage.removeItem('fp_preloaded');
   localStorage.removeItem('fp_sync_code');
   localStorage.removeItem('fp_last_modified');
   profile = null;
   feeds = [];
   weights = [];
+  poops = [];
   showView('setup');
 }
 
@@ -1310,6 +1609,7 @@ function init(){
   profile = LS.get('fp_profile', null);
   feeds = LS.get('fp_feeds', []);
   weights = LS.get('fp_weights', []);
+  poops = LS.get('fp_poops', []);
   initFirebase();
   if(!profile || !profile.setupDone) showView('setup');
   else showView('home');
