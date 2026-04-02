@@ -131,7 +131,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   </div>
   <div class="card">
     <div class="card-title">Váha</div>
-    <div id="weight-list"></div>
+    <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
+    <div id="weight-list" style="margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
   </div>
 </div>
@@ -573,13 +574,162 @@ function renderTrends(){
   ctx.textAlign = 'left';
   ctx.fillText('optimálna zóna', padL + 11, H - 5);
 
-  // Weights
+  // Weight chart
+  renderWeightChart();
+
+  // Weight list
   let whtml = '';
   const sortedW = [...weights].sort((a,b)=>b.timestamp-a.timestamp);
   sortedW.forEach(w=>{
     whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b> <button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditWeight('+w.id+')">✎</button> <button class="delete-btn" onclick="deleteWeight('+w.id+')">✕</button></span></div>';
   });
   document.getElementById('weight-list').innerHTML = whtml || '<p style="color:var(--muted);font-size:14px">Žiadne záznamy váhy</p>';
+}
+
+function renderWeightChart(){
+  const canvas = document.getElementById('weight-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  const sorted = [...weights].sort((a,b)=>a.timestamp-b.timestamp);
+  ctx.clearRect(0, 0, W, H);
+
+  if(sorted.length < 1){
+    ctx.fillStyle = '#8899aa';
+    ctx.font = '13px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Pridajte váhu pre zobrazenie grafu', W/2, H/2);
+    return;
+  }
+
+  const padL = 42, padR = 16, padT = 16, padB = 32;
+  const cW = W - padL - padR, cH = H - padT - padB;
+
+  const vals = sorted.map(w=>w.kg);
+  const minW = Math.floor(Math.min(...vals) * 10 - 2) / 10;
+  const maxW = Math.ceil(Math.max(...vals) * 10 + 2) / 10;
+  const range = maxW - minW || 1;
+
+  const yScale = v => padT + cH - ((v - minW) / range * cH);
+  const minTs = sorted[0].timestamp;
+  const maxTs = sorted.length > 1 ? sorted[sorted.length-1].timestamp : minTs + 86400000;
+  const tsRange = maxTs - minTs || 86400000;
+  const xScale = ts => padL + ((ts - minTs) / tsRange * cW);
+
+  // WHO growth zone (approximate for girls: 3-7kg in first 6 months)
+  const ageDays = getAgeDays();
+  // Simplified percentile bands based on WHO girls weight-for-age
+  // 3rd percentile and 97th percentile at birth+ageDays
+  const birthKg = sorted[0].kg;
+  const whoP3 = birthKg + (ageDays * 0.018);  // ~18g/day low end
+  const whoP50 = birthKg + (ageDays * 0.028); // ~28g/day median
+  const whoP97 = birthKg + (ageDays * 0.038); // ~38g/day high end
+
+  // Draw growth zone if data spans enough time
+  if(sorted.length > 1){
+    const p3Start = yScale(Math.max(whoP3 - (tsRange/86400000)*0.018, minW));
+    const p97Start = yScale(Math.min(whoP97 - (tsRange/86400000)*0.038 + sorted[0].kg - birthKg + (sorted[0].timestamp-minTs)/86400000*0.038, maxW));
+
+    // Simplified: shade zone between estimated P3 and P97 lines
+    ctx.fillStyle = 'rgba(102, 187, 106, 0.1)';
+    ctx.beginPath();
+    sorted.forEach((w, i) => {
+      const x = xScale(w.timestamp);
+      const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
+      const lo = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.018);
+      const hi = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.038);
+      if(i === 0) ctx.moveTo(x, yScale(Math.max(lo, minW)));
+      else ctx.lineTo(x, yScale(Math.max(lo, minW)));
+    });
+    for(let i = sorted.length - 1; i >= 0; i--){
+      const w = sorted[i];
+      const x = xScale(w.timestamp);
+      const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
+      const hi = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.038);
+      ctx.lineTo(x, yScale(Math.min(hi, maxW)));
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // P3/P97 dashed lines
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(102, 187, 106, 0.3)';
+    ctx.lineWidth = 1;
+    [0.018, 0.038].forEach(rate => {
+      ctx.beginPath();
+      sorted.forEach((w, i) => {
+        const x = xScale(w.timestamp);
+        const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
+        const v = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * rate);
+        const y = yScale(Math.max(minW, Math.min(maxW, v)));
+        if(i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Y-axis grid lines + labels
+  ctx.fillStyle = '#8899aa';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  const step = range > 3 ? 1 : range > 1 ? 0.5 : 0.2;
+  for(let v = Math.ceil(minW / step) * step; v <= maxW; v += step){
+    const y = yScale(v);
+    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = 'rgba(136,153,170,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText(v.toFixed(1), padL - 4, y + 4);
+  }
+
+  // Draw line
+  if(sorted.length > 1){
+    ctx.strokeStyle = '#f8a4b8';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    sorted.forEach((w, i) => {
+      const x = xScale(w.timestamp);
+      const y = yScale(w.kg);
+      if(i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // Draw dots + labels
+  sorted.forEach(w => {
+    const x = xScale(w.timestamp);
+    const y = yScale(w.kg);
+
+    // Dot
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f8a4b8';
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
+
+    // Value
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(w.kg + ' kg', x, y - 10);
+
+    // Date
+    ctx.fillStyle = '#8899aa';
+    ctx.font = '10px -apple-system, sans-serif';
+    const d = new Date(w.timestamp);
+    ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
+  });
 }
 
 // ===== ADD FEEDING =====
