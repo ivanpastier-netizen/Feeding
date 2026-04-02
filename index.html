@@ -1309,12 +1309,14 @@ function renderDiaperStats(){
     var end = start + 86400000;
     var dayPees = pees.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
     var dayPoops = poops.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
-    totalWeek += dayPees.length;
+    var poopPees = dayPees.filter(function(p){ return p.fromPoop; }).length;
+    var dayTotal = dayPees.length + Math.max(0, dayPoops.length - poopPees);
+    totalWeek += dayTotal;
     var label = d.getDate()+'.'+(d.getMonth()+1);
     var peeOnly = dayPees.filter(function(p){ return !p.fromPoop; }).length;
     html += '<div style="text-align:center;min-width:36px">';
     html += '<div style="font-size:11px;color:var(--muted)">'+label+'</div>';
-    html += '<div style="font-size:20px;font-weight:700">'+dayPees.length+'</div>';
+    html += '<div style="font-size:20px;font-weight:700">'+dayTotal+'</div>';
     html += '<div style="font-size:10px;color:var(--muted)">';
     if(peeOnly) html += '💧'+peeOnly;
     if(dayPoops.length) html += '💩'+dayPoops.length;
