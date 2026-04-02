@@ -809,7 +809,7 @@ function getSuggestion(){
     suggested = 150; // Close to bedtime: AR
   } else {
     suggested = dayFeedsLeft > 0 ? Math.round(dayBudget / dayFeedsLeft / 30) * 30 : g.min;
-    suggested = Math.max(90, Math.min(suggested, g.max));
+    suggested = Math.max(60, Math.min(suggested, g.max));
   }
 
   const remaining = Math.max(0, dailyTarget - stats.total);
@@ -2167,7 +2167,7 @@ function renderFeedPlan(){
   }
 
   // Distribute day budget evenly, min 90ml per feed
-  var minFeed = ageDays <= 60 ? 60 : 90;
+  var minFeed = 60;
   while(daySlots.length > 1 && dayBudget / daySlots.length < minFeed) daySlots.pop();
   if(daySlots.length > 0 && dayBudget < minFeed) daySlots = [];
 
