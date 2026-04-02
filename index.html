@@ -450,6 +450,13 @@ function renderSyncUI(){
     connDiv.style.display = 'block';
     discDiv.style.display = 'none';
     codeDisp.textContent = syncCode;
+  } else if(syncCode && !syncRef){
+    dot.className = 'sync-dot off';
+    text.textContent = 'Pripájanie...';
+    text.style.color = 'var(--amber)';
+    connDiv.style.display = 'block';
+    discDiv.style.display = 'none';
+    codeDisp.textContent = syncCode;
   } else {
     dot.className = 'sync-dot off';
     text.textContent = 'Odpojené';
@@ -1315,6 +1322,11 @@ setInterval(()=>{
 
 // Register service worker
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// Auto-reconnect Firebase when coming back online
+window.addEventListener('online', function(){
+  if(syncCode && !syncRef) initFirebase();
+});
 
 init();
 </script>

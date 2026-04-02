@@ -1,7 +1,9 @@
-const CACHE_NAME = 'krmenie-v2';
+const CACHE_NAME = 'krmenie-v3';
 const ASSETS = [
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js'
 ];
 
 self.addEventListener('install', e => {
