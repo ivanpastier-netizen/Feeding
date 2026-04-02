@@ -2073,13 +2073,16 @@ function renderFeedPlan(){
           done: false, isBedtime: false
         });
         futurePlanned++;
-      } else if(dayRemaining > 0){
+      } else if(dayRemaining >= 60){
         // Day feed: distribute remaining day budget
+        // Calculate how many feeds we can fit with at least 60ml each
         var futureDaySlots = 0;
         for(var t = mins; t < btMins; t += intervalMins) futureDaySlots++;
         futureDaySlots = Math.max(1, futureDaySlots);
+        // Reduce slots if amount per feed would be too small
+        while(futureDaySlots > 1 && dayRemaining / futureDaySlots < 60) futureDaySlots--;
         var amount = Math.round(dayRemaining / futureDaySlots / 30) * 30;
-        amount = Math.max(30, Math.min(amount, g.max));
+        amount = Math.max(60, Math.min(amount, g.max));
         amount = Math.min(amount, dayRemaining);
 
         plan.push({
