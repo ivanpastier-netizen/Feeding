@@ -1249,8 +1249,9 @@ function renderWeightChart(){
     ctx.stroke();
   }
 
-  // Draw dots + labels
-  sorted.forEach(w => {
+  // Draw dots + labels (avoid overlap)
+  var prevLabelX = -999, prevLabelY = -999, prevDateX = -999;
+  sorted.forEach((w, idx) => {
     const x = xScale(w.timestamp);
     const y = yScale(w.kg);
 
@@ -1260,17 +1261,26 @@ function renderWeightChart(){
     ctx.fillStyle = '#f8a4b8';
     ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
 
-    // Value
+    // Value — shift up/down if too close to previous label
+    var labelY = y - 10;
+    if(Math.abs(x - prevLabelX) < 50 && Math.abs(labelY - prevLabelY) < 14){
+      labelY = prevLabelY < y ? y + 18 : y - 22;
+    }
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '11px -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(w.kg + ' kg', x, y - 10);
+    ctx.fillText(w.kg + ' kg', x, labelY);
+    prevLabelX = x; prevLabelY = labelY;
 
-    // Date
-    ctx.fillStyle = '#8899aa';
-    ctx.font = '10px -apple-system, sans-serif';
-    const d = new Date(w.timestamp);
-    ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
+    // Date — skip if too close to previous date
+    var showDate = Math.abs(x - prevDateX) > 40;
+    if(showDate || idx === sorted.length - 1){
+      ctx.fillStyle = '#8899aa';
+      ctx.font = '10px -apple-system, sans-serif';
+      const d = new Date(w.timestamp);
+      ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
+      prevDateX = x;
+    }
   });
 
   renderPoopStats();
