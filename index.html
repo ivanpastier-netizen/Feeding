@@ -785,7 +785,11 @@ function getSuggestion(){
   var btMins = btH * 60 + btM;
   var nowMins = now.getHours() * 60 + now.getMinutes();
   var lastFeedForSug = feeds.length ? feeds.sort(function(a,b){return b.timestamp-a.timestamp;})[0] : null;
-  var lastMins = lastFeedForSug ? (function(){ var d=new Date(lastFeedForSug.timestamp); return d.getHours()*60+d.getMinutes(); })() : nowMins;
+  var lastMins = nowMins;
+  if(lastFeedForSug){
+    var lfd = new Date(lastFeedForSug.timestamp);
+    lastMins = lfd.getHours() * 60 + lfd.getMinutes();
+  }
   var nextSlot = lastMins + avgDayInterval;
   if(nextSlot <= nowMins) nextSlot = nowMins + 15;
   var dayFeedsLeft = 0;
@@ -837,6 +841,9 @@ function showView(id){
 
 // ===== HOME =====
 function renderHome(){
+  try { renderHomeInner(); } catch(e){ console.warn('renderHome error:', e); }
+}
+function renderHomeInner(){
   const ageDays = getAgeDays();
   const weeks = Math.floor(ageDays/7);
   const days = ageDays%7;
