@@ -145,24 +145,21 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <div class="progress-bar"><div class="progress-fill" id="daily-progress"></div></div>
     <div id="daily-progress-text" style="font-size:12px;color:var(--muted);text-align:center"></div>
   </div>
-  <div id="last-poop-card" class="card" style="display:none">
-    <div class="card-title">Posledné hovienko</div>
-    <div class="row between">
-      <span id="last-poop-time">—</span>
-      <span id="last-poop-info"></span>
-    </div>
-    <div id="last-poop-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
-  </div>
-  <div id="diaper-card" class="card" style="display:none">
+  <div id="diaper-card" class="card">
     <div class="card-title">Plienky (24h)</div>
-    <div class="row between">
+    <div class="row between" style="margin-bottom:8px">
       <span id="diaper-total" style="font-size:20px;font-weight:700"></span>
       <span id="diaper-detail" style="font-size:13px;color:var(--muted)"></span>
     </div>
+    <div id="last-poop-info-row" style="display:none;font-size:13px;color:var(--muted);margin-bottom:10px">
+      Posledné 💩: <span id="last-poop-ago2"></span> — <span id="last-poop-info2"></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" onclick="openPeeModal()" style="flex:1;background:#4fc3f7;color:#000;padding:12px;font-size:15px">💧 Cikošák</button>
+      <button class="btn-primary" onclick="openPoopModal()" style="flex:1;background:var(--amber);padding:12px;font-size:15px">💩 Kakošák</button>
+    </div>
   </div>
   <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
-  <button class="btn-primary" onclick="openPeeModal()" style="margin-top:8px;background:#4fc3f7;color:#000">💧 Cikošák</button>
-  <button class="btn-primary" onclick="openPoopModal()" style="margin-top:8px;background:var(--amber)">💩 Kakošák</button>
 </div>
 
 <!-- HISTORY VIEW -->
@@ -804,43 +801,35 @@ function renderHome(){
   bar.style.background = pct>=100?'var(--red)':pct>=85?'var(--amber)':'var(--green)';
   document.getElementById('daily-progress-text').textContent = pct+'% z '+s.dailyTarget+' ml';
 
-  // Diaper summary (24h)
+  // Diaper + poop summary (24h)
   var cutoff24h = Date.now() - 86400000;
   var pees24h = pees.filter(function(p){ return p.timestamp >= cutoff24h; });
   var poops24h = poops.filter(function(p){ return p.timestamp >= cutoff24h; });
   var poopPees = pees24h.filter(function(p){ return p.fromPoop; }).length;
   var totalDiapers = pees24h.length + Math.max(0, poops24h.length - poopPees);
-  var diaperCard = document.getElementById('diaper-card');
-  if(totalDiapers > 0 || poops24h.length > 0){
-    diaperCard.style.display = 'block';
-    document.getElementById('diaper-total').textContent = totalDiapers + ' plienok';
-    var parts = [];
-    var peeOnly = pees24h.filter(function(p){ return !p.fromPoop; }).length;
-    if(peeOnly) parts.push('💧 '+peeOnly+'× ciky');
-    if(poops24h.length) parts.push('💩 '+poops24h.length+'× kaky');
-    document.getElementById('diaper-detail').textContent = parts.join(' | ');
-  } else {
-    diaperCard.style.display = 'none';
-  }
+  document.getElementById('diaper-total').textContent = totalDiapers + ' plienok';
+  var parts = [];
+  var peeOnly = pees24h.filter(function(p){ return !p.fromPoop; }).length;
+  if(peeOnly) parts.push('💧 '+peeOnly+'× ciky');
+  if(poops24h.length) parts.push('💩 '+poops24h.length+'× kaky');
+  document.getElementById('diaper-detail').textContent = parts.join(' | ');
 
-  // Last poop
+  // Last poop inline
   var sortedPoops = [...poops].sort(function(a,b){ return b.timestamp - a.timestamp; });
   var lastPoop = sortedPoops[0];
-  var poopCard = document.getElementById('last-poop-card');
+  var poopRow = document.getElementById('last-poop-info-row');
   if(lastPoop){
-    poopCard.style.display = 'block';
-    var pd = new Date(lastPoop.timestamp);
-    document.getElementById('last-poop-time').textContent = pd.toLocaleDateString('sk-SK')+' '+fmt(pd);
-    document.getElementById('last-poop-info').innerHTML = '<span class="poop-dot" style="background:'+lastPoop.color+'"></span> '+(POOP_SIZE_LABELS[lastPoop.size]||lastPoop.size);
+    poopRow.style.display = 'block';
+    document.getElementById('last-poop-info2').innerHTML = '<span class="poop-dot" style="background:'+lastPoop.color+'"></span> '+(POOP_SIZE_LABELS[lastPoop.size]||lastPoop.size);
     var pmins = Math.round((Date.now() - lastPoop.timestamp)/60000);
-    if(pmins < 60) document.getElementById('last-poop-ago').textContent = 'pred '+pmins+' min';
+    if(pmins < 60) document.getElementById('last-poop-ago2').textContent = 'pred '+pmins+' min';
     else {
       var ph = Math.floor(pmins/60);
       var pm = pmins%60;
-      document.getElementById('last-poop-ago').textContent = 'pred '+ph+'h '+pm+' min';
+      document.getElementById('last-poop-ago2').textContent = 'pred '+ph+'h '+pm+' min';
     }
   } else {
-    poopCard.style.display = 'none';
+    poopRow.style.display = 'none';
   }
 }
 
