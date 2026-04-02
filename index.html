@@ -684,12 +684,6 @@ function renderWeightChart(){
   const padL = 42, padR = 16, padT = 16, padB = 32;
   const cW = W - padL - padR, cH = H - padT - padB;
 
-  const vals = sorted.map(w=>w.kg);
-  const minW = Math.floor(Math.min(...vals) * 10 - 2) / 10;
-  const maxW = Math.ceil(Math.max(...vals) * 10 + 2) / 10;
-  const range = maxW - minW || 1;
-
-  const yScale = v => padT + cH - ((v - minW) / range * cH);
   const minTs = sorted[0].timestamp;
   const maxTs = sorted.length > 1 ? sorted[sorted.length-1].timestamp : minTs + 86400000;
   const tsRange = maxTs - minTs || 86400000;
@@ -709,6 +703,17 @@ function renderWeightChart(){
     return WHO_WEIGHT_GIRLS[lo][pIdx] + (WHO_WEIGHT_GIRLS[lo+1][pIdx] - WHO_WEIGHT_GIRLS[lo][pIdx]) * frac;
   }
 
+  // Calculate Y axis range including WHO zone so it never shifts
+  const vals = sorted.map(w=>w.kg);
+  const whoP3start = whoAt(minTs, 1), whoP3end = whoAt(maxTs, 1);
+  const whoP97start = whoAt(minTs, 5), whoP97end = whoAt(maxTs, 5);
+  const allVals = [...vals, whoP3start, whoP3end, whoP97start, whoP97end];
+  const minW = Math.floor(Math.min(...allVals) * 10 - 1) / 10;
+  const maxW = Math.ceil(Math.max(...allVals) * 10 + 1) / 10;
+  const range = maxW - minW || 1;
+
+  const yScale = v => padT + cH - ((v - minW) / range * cH);
+
   // Draw P3-P97 shaded zone
   const steps = 20;
   ctx.fillStyle = 'rgba(102, 187, 106, 0.12)';
@@ -717,14 +722,14 @@ function renderWeightChart(){
     const ts = minTs + (tsRange * i / steps);
     const x = xScale(ts);
     const v = whoAt(ts, 1); // P3
-    if(i===0) ctx.moveTo(x, yScale(Math.max(v, minW)));
-    else ctx.lineTo(x, yScale(Math.max(v, minW)));
+    if(i===0) ctx.moveTo(x, yScale(v));
+    else ctx.lineTo(x, yScale(v));
   }
   for(let i=steps;i>=0;i--){
     const ts = minTs + (tsRange * i / steps);
     const x = xScale(ts);
     const v = whoAt(ts, 5); // P97
-    ctx.lineTo(x, yScale(Math.min(v, maxW)));
+    ctx.lineTo(x, yScale(v));
   }
   ctx.closePath();
   ctx.fill();
@@ -752,8 +757,8 @@ function renderWeightChart(){
       const ts = minTs + (tsRange * i / steps);
       const x = xScale(ts);
       const v = whoAt(ts, pIdx);
-      if(i===0) ctx.moveTo(x, yScale(Math.max(minW, Math.min(maxW, v))));
-      else ctx.lineTo(x, yScale(Math.max(minW, Math.min(maxW, v))));
+      if(i===0) ctx.moveTo(x, yScale(v));
+      else ctx.lineTo(x, yScale(v));
     }
     ctx.stroke();
   });
