@@ -232,12 +232,10 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <div class="card">
     <div class="card-title">Záloha dát</div>
     <p style="font-size:13px;color:var(--muted);margin-bottom:12px">iOS môže vymazať dáta PWA po 7 dňoch nepoužívania. Odporúčame pravidelne zálohovať.</p>
-    <button class="btn-small" onclick="exportData()" style="width:100%;margin-bottom:8px">📋 Kopírovať dáta do schránky</button>
-    <button class="btn-small" onclick="showImport()" style="width:100%;margin-bottom:8px">📥 Importovať dáta</button>
-    <div id="import-area" style="display:none;margin-top:8px">
-      <textarea id="import-input" rows="4" style="width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-family:inherit" placeholder="Vložte JSON dáta sem..."></textarea>
-      <button class="btn-primary" onclick="importData()" style="margin-top:8px">Importovať</button>
-    </div>
+    <button class="btn-small" onclick="exportData()" style="width:100%;margin-bottom:8px">💾 Stiahnuť zálohu</button>
+    <label class="btn-small" style="display:block;width:100%;text-align:center;margin-bottom:8px;cursor:pointer">📂 Nahrať zálohu
+      <input type="file" accept=".json" onchange="importFile(event)" style="display:none">
+    </label>
   </div>
   <div class="card" style="margin-top:24px">
     <button class="btn-small" style="width:100%;color:var(--muted);border-color:var(--border)" onclick="toggleDangerZone()">Nebezpečná zóna</button>
@@ -1751,47 +1749,42 @@ function saveSettings(){
 }
 
 function exportData(){
-  const data = JSON.stringify({profile, feeds, weights, poops, pees}, null, 2);
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(data).then(()=>alert('Dáta skopírované do schránky!')).catch(()=>fallbackCopy(data));
-  } else {
-    fallbackCopy(data);
-  }
+  var data = JSON.stringify({profile, feeds, weights, poops, pees}, null, 2);
+  var blob = new Blob([data], {type: 'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var date = new Date().toISOString().slice(0,10);
+  a.download = 'krmenie-zaloha-'+date+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-function fallbackCopy(text){
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-  alert('Dáta skopírované do schránky!');
-}
-
-function showImport(){
-  const area = document.getElementById('import-area');
-  area.style.display = area.style.display === 'none' ? 'block' : 'none';
-}
-
-function importData(){
-  try{
-    const raw = document.getElementById('import-input').value.trim();
-    const data = JSON.parse(raw);
-    if(data.profile) profile = data.profile;
-    if(data.feeds) feeds = data.feeds;
-    if(data.weights) weights = data.weights;
-    if(data.poops) poops = data.poops;
-    if(data.pees) pees = data.pees;
-    saveAll();
-    alert('Dáta importované!');
-    document.getElementById('import-area').style.display = 'none';
-    showView('home');
-  }catch(e){
-    alert('Chyba: neplatný formát dát.');
-  }
+function importFile(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      var data = JSON.parse(ev.target.result);
+      if(!data.profile && !data.feeds){ alert('Neplatný súbor zálohy.'); return; }
+      if(!confirm('Nahrať zálohu? Aktuálne dáta budú nahradené.')) return;
+      if(data.profile) profile = data.profile;
+      if(data.feeds) feeds = data.feeds;
+      if(data.weights) weights = data.weights;
+      if(data.poops) poops = data.poops;
+      if(data.pees) pees = data.pees;
+      saveAll();
+      alert('Záloha nahraná!');
+      showView('home');
+    } catch(err){
+      alert('Chyba: neplatný formát súboru.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 }
 
 function toggleDangerZone(){
