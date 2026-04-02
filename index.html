@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kŕmenie">
 <meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%23f8a4b8'/><text x='90' y='125' font-size='100' text-anchor='middle' fill='white'>🍼</text></svg>">
 <link rel="manifest" href="manifest.json">
 <title>Olivia - Kŕmenie</title>
 <style>
@@ -135,6 +136,33 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   </div>
 </div>
 
+<!-- SETTINGS VIEW -->
+<div id="settings" class="view">
+  <h1>Nastavenia</h1>
+  <div class="card">
+    <div class="card-title">Profil dieťaťa</div>
+    <label style="font-size:13px;color:var(--muted);display:block;margin-bottom:4px">Meno</label>
+    <input type="text" id="settings-name" style="margin-bottom:12px">
+    <label style="font-size:13px;color:var(--muted);display:block;margin-bottom:4px">Dátum narodenia</label>
+    <input type="date" id="settings-birth">
+    <button class="btn-primary" onclick="saveSettings()" style="margin-top:12px">Uložiť profil</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Záloha dát</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">iOS môže vymazať dáta PWA po 7 dňoch nepoužívania. Odporúčame pravidelne zálohovať.</p>
+    <button class="btn-small" onclick="exportData()" style="width:100%;margin-bottom:8px">📋 Kopírovať dáta do schránky</button>
+    <button class="btn-small" onclick="showImport()" style="width:100%;margin-bottom:8px">📥 Importovať dáta</button>
+    <div id="import-area" style="display:none;margin-top:8px">
+      <textarea id="import-input" rows="4" style="width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-family:inherit" placeholder="Vložte JSON dáta sem..."></textarea>
+      <button class="btn-primary" onclick="importData()" style="margin-top:8px">Importovať</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Vymazať dáta</div>
+    <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 Vymazať všetky dáta</button>
+  </div>
+</div>
+
 <!-- ADD FEEDING MODAL -->
 <div id="add-modal" class="modal">
   <div class="modal-content">
@@ -217,6 +245,10 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <button onclick="showView('trends')" id="nav-trends">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20l5-8 4 4 9-12"/></svg>
     Trendy
+  </button>
+  <button onclick="showView('settings')" id="nav-settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Nastavenia
   </button>
 </nav>
 
@@ -309,6 +341,7 @@ function showView(id){
   if(id==='home') renderHome();
   if(id==='history') renderHistory();
   if(id==='trends') renderTrends();
+  if(id==='settings') renderSettings();
 }
 
 // ===== HOME =====
@@ -692,6 +725,79 @@ function saveSetup(){
   if(w) weights.push({id: Date.now(), timestamp: new Date(birth).getTime(), kg: w});
   saveAll();
   showView('home');
+}
+
+// ===== SETTINGS =====
+function renderSettings(){
+  if(profile){
+    document.getElementById('settings-name').value = profile.name || '';
+    document.getElementById('settings-birth').value = profile.birthDate || '';
+  }
+}
+
+function saveSettings(){
+  const name = document.getElementById('settings-name').value.trim() || 'Baby';
+  const birth = document.getElementById('settings-birth').value;
+  if(!birth) return;
+  profile.name = name;
+  profile.birthDate = birth;
+  saveAll();
+  alert('Profil uložený!');
+}
+
+function exportData(){
+  const data = JSON.stringify({profile, feeds, weights}, null, 2);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(data).then(()=>alert('Dáta skopírované do schránky!')).catch(()=>fallbackCopy(data));
+  } else {
+    fallbackCopy(data);
+  }
+}
+
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  alert('Dáta skopírované do schránky!');
+}
+
+function showImport(){
+  const area = document.getElementById('import-area');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+}
+
+function importData(){
+  try{
+    const raw = document.getElementById('import-input').value.trim();
+    const data = JSON.parse(raw);
+    if(data.profile) profile = data.profile;
+    if(data.feeds) feeds = data.feeds;
+    if(data.weights) weights = data.weights;
+    saveAll();
+    alert('Dáta importované!');
+    document.getElementById('import-area').style.display = 'none';
+    showView('home');
+  }catch(e){
+    alert('Chyba: neplatný formát dát.');
+  }
+}
+
+function resetData(){
+  if(!confirm('Naozaj chcete vymazať všetky dáta? Táto akcia sa nedá vrátiť.')) return;
+  if(!confirm('Ste si istý? Všetky kŕmenia a váhy budú vymazané.')) return;
+  localStorage.removeItem('fp_profile');
+  localStorage.removeItem('fp_feeds');
+  localStorage.removeItem('fp_weights');
+  localStorage.removeItem('fp_preloaded');
+  profile = null;
+  feeds = [];
+  weights = [];
+  showView('setup');
 }
 
 // ===== HELPERS =====
