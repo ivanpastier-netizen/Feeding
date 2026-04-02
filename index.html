@@ -1653,7 +1653,9 @@ function savePoop(){
 
 function deletePoop(id){
   if(!requireSync()) return;
-  poops = poops.filter(function(p){ return p.id !== id; });
+  var p = poops.find(function(x){ return x.id === id; });
+  if(p) pees = pees.filter(function(pe){ return !(pe.fromPoop && pe.timestamp === p.timestamp); });
+  poops = poops.filter(function(x){ return x.id !== id; });
   saveAll();
   renderHistory();
 }
@@ -1709,7 +1711,9 @@ function saveEditPoop(){
 function deleteEditPoop(){
   if(!requireSync()) return;
   if(!confirm('Naozaj vymazať tento záznam?')) return;
-  poops = poops.filter(function(p){ return p.id !== editPoopId; });
+  var p = poops.find(function(x){ return x.id === editPoopId; });
+  if(p) pees = pees.filter(function(pe){ return !(pe.fromPoop && pe.timestamp === p.timestamp); });
+  poops = poops.filter(function(x){ return x.id !== editPoopId; });
   saveAll();
   closeEditPoopModal();
   renderHistory();
