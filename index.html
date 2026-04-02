@@ -2035,6 +2035,17 @@ function renderFeedPlan(){
     nextMins = nowMins + 15;
   }
 
+  // Force bedtime slot first (20:00 AR 150ml)
+  var btSlotDone = plan.some(function(p){ return Math.abs(p.mins - btMins) < 45; });
+  if(!btSlotDone && btMins > nowMins){
+    plan.push({
+      hour: btH, min: btM, mins: btMins,
+      time: String(btH).padStart(2,'0') + ':' + String(btM).padStart(2,'0'),
+      amount: nightAmount, type: 'ar', isNight: true,
+      done: false, isBedtime: true
+    });
+  }
+
   var futurePlanned = 0;
   var dayRemaining = dayBudget;
   while(nextMins < 1440 + nightEnd * 60 && futurePlanned < 10){
@@ -2047,7 +2058,6 @@ function renderFeedPlan(){
     var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 30; });
     if(!tooClose && mins > nowMins - 10){
       var isNight = h >= btH || h < nightEnd;
-      var isBedtime = Math.abs(mins - btMins) < 45;
 
       if(isNight){
         // Night feed: always 150ml AR, part of the reserved budget
@@ -2055,7 +2065,7 @@ function renderFeedPlan(){
           hour: h, min: m, mins: mins,
           time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
           amount: nightAmount, type: 'ar', isNight: true,
-          done: false, isBedtime: isBedtime
+          done: false, isBedtime: false
         });
         futurePlanned++;
       } else if(dayRemaining > 0){
