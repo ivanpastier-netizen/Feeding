@@ -78,6 +78,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .rec-table th{text-align:left;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:11px}
 .rec-table td{padding:6px 4px;border-bottom:1px solid var(--border)}
 .rec-table tr.current{background:rgba(248,164,184,0.15);border-radius:8px}
+.rec-table tr.past{color:var(--muted);opacity:0.6}
 .rec-table tr.future{color:var(--muted)}
 .sync-status{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -1069,15 +1070,15 @@ function renderRecsTable(){
   let html = '<table class="rec-table">';
   html += '<tr><th>Mesiac</th><th>Váha (kg)</th><th>ml/dávka</th><th>Dávky/deň</th><th>ml/deň</th><th></th></tr>';
 
-  // Show from current month to +5 months
-  const startM = Math.max(0, curMonth);
-  const endM = Math.min(startM + 6, FEED_RECS.length);
+  // Show from 2 months before current to +5 months ahead
+  const startM = Math.max(0, curMonth - 2);
+  const endM = Math.min(curMonth + 6, FEED_RECS.length);
 
   for(let m = startM; m < endM; m++){
     const r = FEED_RECS[m];
     const w = WHO_WEIGHT_GIRLS[m] || WHO_WEIGHT_GIRLS[WHO_WEIGHT_GIRLS.length-1];
     const isCurrent = m === curMonth;
-    const cls = isCurrent ? 'current' : 'future';
+    const cls = isCurrent ? 'current' : (m < curMonth ? 'past' : 'future');
     html += '<tr class="'+cls+'">';
     html += '<td><b>'+m+' m</b>'+(isCurrent?' ←':'')+'</td>';
     html += '<td>'+w[2].toFixed(1)+'<br><small style="color:var(--muted)">'+w[1].toFixed(1)+'–'+w[4].toFixed(1)+'</small></td>';
@@ -1892,7 +1893,7 @@ setInterval(()=>{
 }, 60000);
 
 // Register service worker
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(()=>{});
 
 // Auto-reconnect Firebase when coming back online
 window.addEventListener('online', function(){

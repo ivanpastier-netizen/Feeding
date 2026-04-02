@@ -1,6 +1,5 @@
-const CACHE_NAME = 'krmenie-v6';
+const CACHE_NAME = 'krmenie-v7';
 const ASSETS = [
-  './index.html',
   './manifest.json',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js'
@@ -23,7 +22,20 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  const url = new URL(e.request.url);
+  // Network-first for index.html — always get latest version
+  if(url.pathname.endsWith('/') || url.pathname.endsWith('index.html')){
+    e.respondWith(
+      fetch(e.request).then(r => {
+        const clone = r.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        return r;
+      }).catch(() => caches.match(e.request))
+    );
+  } else {
+    // Cache-first for static assets (Firebase SDK, manifest)
+    e.respondWith(
+      caches.match(e.request).then(r => r || fetch(e.request))
+    );
+  }
 });
