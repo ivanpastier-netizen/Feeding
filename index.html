@@ -269,9 +269,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button id="type-ar" class="btn-small" onclick="setType('ar')">AR mlieko</button>
     </div>
     <div class="stepper">
-      <button onclick="adjustAmount(-30)">−</button>
+      <button onclick="adjustAmount(-30)">−30</button>
+      <button onclick="adjustAmount(-10)" style="font-size:18px;width:48px;height:48px">−10</button>
       <div class="big-num" id="add-amount">120</div>
-      <button onclick="adjustAmount(30)">+</button>
+      <button onclick="adjustAmount(10)" style="font-size:18px;width:48px;height:48px">+10</button>
+      <button onclick="adjustAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
     <div class="card">
@@ -314,9 +316,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button id="edit-type-ar" class="btn-small" onclick="setEditType('ar')">AR mlieko</button>
     </div>
     <div class="stepper">
-      <button onclick="adjustEditAmount(-30)">−</button>
+      <button onclick="adjustEditAmount(-30)">−30</button>
+      <button onclick="adjustEditAmount(-10)" style="font-size:18px;width:48px;height:48px">−10</button>
       <div class="big-num" id="edit-amount">120</div>
-      <button onclick="adjustEditAmount(30)">+</button>
+      <button onclick="adjustEditAmount(10)" style="font-size:18px;width:48px;height:48px">+10</button>
+      <button onclick="adjustEditAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
     <div class="card">
@@ -1462,7 +1466,7 @@ function updateTypeButtons(){
 }
 
 function adjustAmount(delta){
-  addAmount = Math.max(30, Math.min(300, addAmount+delta));
+  addAmount = Math.max(10, Math.min(300, addAmount+delta));
   document.getElementById('add-amount').textContent = addAmount;
 }
 
