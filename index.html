@@ -1967,15 +1967,12 @@ function renderFeedPlan(){
   var w = getLatestWeight();
   var dailyTarget = s.dailyTarget;
   var nightAmount = 150;
-  var nightEnd = 6;
+  var nightEnd = 6; // 06:00
 
   var bedtime = LS.get('fp_bedtime', '20:00');
   var btParts = bedtime.split(':');
   var btH = parseInt(btParts[0]), btM = parseInt(btParts[1] || 0);
   var btMins = btH * 60 + btM;
-
-  var intervalH = ageDays <= 60 ? 3 : 3.5;
-  var intervalMins = Math.round(intervalH * 60);
 
   var now = new Date();
   var nowMins = now.getHours() * 60 + now.getMinutes();
@@ -1983,23 +1980,58 @@ function renderFeedPlan(){
   var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; })
     .sort(function(a,b){ return a.timestamp - b.timestamp; });
 
-  // Find last actual feed
-  var allSorted = [...feeds].sort(function(a,b){ return b.timestamp - a.timestamp; });
-  var lastFeed = allSorted[0];
-  var lastFeedMins = null;
-  if(lastFeed){
-    var lfd = new Date(lastFeed.timestamp);
-    if(lfd.toDateString() === now.toDateString()){
-      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes();
-    } else {
-      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes() - 1440;
-    }
+  // ===== ANALYZE BABY'S ACTUAL RHYTHM (last 7 days) =====
+  var weekAgo = Date.now() - 7 * 86400000;
+  var recentFeeds = feeds.filter(function(f){ return f.timestamp >= weekAgo; })
+    .sort(function(a,b){ return a.timestamp - b.timestamp; });
+
+  // Calculate average day interval and night interval
+  var dayIntervals = [], nightIntervals = [];
+  for(var i = 1; i < recentFeeds.length; i++){
+    var prev = new Date(recentFeeds[i-1].timestamp);
+    var curr = new Date(recentFeeds[i].timestamp);
+    var diffMins = (curr - prev) / 60000;
+    if(diffMins < 30 || diffMins > 600) continue; // skip outliers
+    var prevH = prev.getHours();
+    var isNightGap = (prevH >= btH || prevH < nightEnd);
+    if(isNightGap) nightIntervals.push(diffMins);
+    else dayIntervals.push(diffMins);
   }
+
+  var avgDayInterval = dayIntervals.length > 0
+    ? Math.round(dayIntervals.reduce(function(a,b){return a+b;},0) / dayIntervals.length)
+    : (ageDays <= 60 ? 180 : 210); // fallback: 3h or 3.5h
+  var avgNightInterval = nightIntervals.length > 0
+    ? Math.round(nightIntervals.reduce(function(a,b){return a+b;},0) / nightIntervals.length)
+    : 270; // fallback: 4.5h
+
+  // Clamp to reasonable ranges
+  avgDayInterval = Math.max(150, Math.min(avgDayInterval, 270)); // 2.5h-4.5h
+  avgNightInterval = Math.max(210, Math.min(avgNightInterval, 360)); // 3.5h-6h
+
+  // Count typical night feeds from real data
+  var nightFeedCounts = [];
+  for(var d = 0; d < 7; d++){
+    var dayStart = new Date(now); dayStart.setDate(dayStart.getDate()-d);
+    dayStart.setHours(btH, btM, 0, 0);
+    var dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+    dayEnd.setHours(nightEnd, 0, 0, 0);
+    var nightCount = recentFeeds.filter(function(f){
+      return f.timestamp >= dayStart.getTime() && f.timestamp < dayEnd.getTime();
+    }).length;
+    if(d > 0 || nowMins > nightEnd * 60) nightFeedCounts.push(nightCount); // skip today if still morning
+  }
+  var avgNightFeeds = nightFeedCounts.length > 0
+    ? Math.round(nightFeedCounts.reduce(function(a,b){return a+b;},0) / nightFeedCounts.length)
+    : 2;
+  avgNightFeeds = Math.max(1, Math.min(avgNightFeeds, 3));
 
   var alreadyConsumed = todayFeeds.reduce(function(s,f){ return s + f.amount; }, 0);
 
-  // Add today's actual feeds
+  // ===== BUILD PLAN =====
   var plan = [];
+
+  // Add today's actual feeds
   todayFeeds.forEach(function(f){
     var fd = new Date(f.timestamp);
     var h = fd.getHours(), m = fd.getMinutes();
@@ -2013,34 +2045,36 @@ function renderFeedPlan(){
     });
   });
 
-  // Count future night feeds: bedtime slot + feeds every intervalH until 6am
-  // Only count feeds that haven't happened yet (after now)
-  var futureNightSlots = [];
-  // Bedtime slot
-  if(btMins > nowMins) futureNightSlots.push(btMins);
-  // After bedtime until 6am
-  var t = btMins + intervalMins;
-  while(t < 1440 + nightEnd * 60){
-    var slotMins = t >= 1440 ? t - 1440 : t;
-    // Only count if in the future
-    var slotDone = plan.some(function(p){ return p.done && Math.abs(p.mins - slotMins) < 45; });
-    if(!slotDone) futureNightSlots.push(slotMins);
-    t += intervalMins;
-  }
-  var nightReserve = futureNightSlots.length * nightAmount;
+  // Night plan: bedtime feed + avgNightFeeds at night interval
+  // Subtract already-done night feeds from today
+  var doneNightFeeds = todayFeeds.filter(function(f){
+    var fh = new Date(f.timestamp).getHours();
+    return fh >= btH || fh < nightEnd;
+  }).length;
+  var futureNightCount = Math.max(0, (avgNightFeeds + 1) - doneNightFeeds); // +1 for bedtime
+  var nightReserve = futureNightCount * nightAmount;
 
-  // Budget for day feeds = target - eaten - night reserve
+  // Day budget
   var dayBudget = Math.max(0, dailyTarget - alreadyConsumed - nightReserve);
 
-  // Project future feeds
-  var nextMins;
-  if(lastFeedMins !== null && lastFeedMins + intervalMins > nowMins){
-    nextMins = lastFeedMins + intervalMins;
-  } else {
-    nextMins = nowMins + 15;
+  // Find next feed time based on last actual feed
+  var allSorted = [...feeds].sort(function(a,b){ return b.timestamp - a.timestamp; });
+  var lastFeed = allSorted[0];
+  var lastFeedMins = null;
+  if(lastFeed){
+    var lfd = new Date(lastFeed.timestamp);
+    if(lfd.toDateString() === now.toDateString())
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes();
+    else
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes() - 1440;
   }
+  var nextMins;
+  if(lastFeedMins !== null && lastFeedMins + avgDayInterval > nowMins)
+    nextMins = lastFeedMins + avgDayInterval;
+  else
+    nextMins = nowMins + 15;
 
-  // Force bedtime slot first (20:00 AR 150ml)
+  // --- Force bedtime slot ---
   var btSlotDone = plan.some(function(p){ return Math.abs(p.mins - btMins) < 45; });
   if(!btSlotDone && btMins > nowMins){
     plan.push({
@@ -2051,33 +2085,30 @@ function renderFeedPlan(){
     });
   }
 
-  // Pre-calculate actual available day feed slots (before filling)
+  // --- Day feeds: fill slots before bedtime ---
   var daySlots = [];
   var scanMins = nextMins;
-  while(scanMins < btMins * 1.0){
+  while(scanMins < btMins){
     var sMins = scanMins >= 1440 ? scanMins - 1440 : scanMins;
     var sh = Math.floor(sMins / 60) % 24;
     var sm = sMins % 60;
     sm = Math.round(sm / 15) * 15; if(sm >= 60){ sh++; sm = 0; } sh = sh % 24;
     var slotMins = sh * 60 + sm;
-    var isNight = sh >= btH || sh < nightEnd;
-    var slotTooClose = plan.some(function(p){ return Math.abs(p.mins - slotMins) < 30; });
-    if(!slotTooClose && slotMins > nowMins - 10 && !isNight){
+    var tooClose = plan.some(function(p){ return Math.abs(p.mins - slotMins) < 30; });
+    if(!tooClose && slotMins > nowMins - 10 && slotMins < btMins - 30){
       daySlots.push({hour: sh, min: sm, mins: slotMins});
     }
-    scanMins += intervalMins;
+    scanMins += avgDayInterval;
   }
 
-  // Distribute day budget: min 90ml per feed, reduce slots if needed
+  // Distribute day budget evenly, min 90ml per feed
   var minFeed = ageDays <= 60 ? 60 : 90;
   while(daySlots.length > 1 && dayBudget / daySlots.length < minFeed) daySlots.pop();
   if(daySlots.length > 0 && dayBudget < minFeed) daySlots = [];
 
-  // Calculate amount per day feed (even split, round to 30ml)
   var dayFeedAmount = daySlots.length > 0 ? Math.round(dayBudget / daySlots.length / 30) * 30 : 0;
   dayFeedAmount = Math.min(dayFeedAmount, g.max);
 
-  // Add day feeds
   var dayRemaining = dayBudget;
   daySlots.forEach(function(slot, idx){
     var amount = (idx === daySlots.length - 1) ? dayRemaining : Math.min(dayFeedAmount, dayRemaining);
@@ -2094,17 +2125,17 @@ function renderFeedPlan(){
     }
   });
 
-  // Add night feeds (after bedtime)
-  var futurePlanned = 0;
-  var nightScanMins = btMins + intervalMins;
-  while(nightScanMins < 1440 + nightEnd * 60 && futurePlanned < 10){
-    var feedMins = nightScanMins >= 1440 ? nightScanMins - 1440 : nightScanMins;
+  // --- Night feeds: at night interval after bedtime ---
+  var nightSlotTime = btMins + avgNightInterval;
+  var nightAdded = 0;
+  var maxNight = Math.max(0, avgNightFeeds - doneNightFeeds);
+  while(nightAdded < maxNight && nightSlotTime < 1440 + nightEnd * 60){
+    var feedMins = nightSlotTime >= 1440 ? nightSlotTime - 1440 : nightSlotTime;
     var h = Math.floor(feedMins / 60) % 24;
     var m = feedMins % 60;
     m = Math.round(m / 15) * 15; if(m >= 60){ h++; m = 0; } h = h % 24;
     var mins = h * 60 + m;
-
-    var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 30; });
+    var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 45; });
     if(!tooClose){
       plan.push({
         hour: h, min: m, mins: mins,
@@ -2112,9 +2143,9 @@ function renderFeedPlan(){
         amount: nightAmount, type: 'ar', isNight: true,
         done: false, isBedtime: false
       });
-      futurePlanned++;
+      nightAdded++;
     }
-    nightScanMins += intervalMins;
+    nightSlotTime += avgNightInterval;
   }
 
   // Sort
@@ -2124,19 +2155,20 @@ function renderFeedPlan(){
     return am - bm;
   });
 
-  // Summary
+  // ===== SUMMARY =====
   var totalPlan = plan.reduce(function(s,p){ return s + p.amount; }, 0);
   var futureDayFeeds = plan.filter(function(p){ return !p.isNight && !p.done; });
   var futureNightFeeds = plan.filter(function(p){ return p.isNight && !p.done; });
   var summaryHtml = '<div class="card-title">Plán pre ' + (profile ? profile.name : 'bábätko') + '</div>';
-  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + plan.length + ' kŕmení</b> | interval ~' + intervalH + 'h</div>';
+  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + plan.length + ' kŕmení</b></div>';
   summaryHtml += '<div style="font-size:13px;color:var(--muted)">Zostáva: ☀️ ' + futureDayFeeds.length + '× mlieko + 🌙 ' + futureNightFeeds.length + '× AR</div>';
   summaryHtml += '<div style="font-size:13px;color:var(--muted)">Zjedené: <b>' + alreadyConsumed + ' ml</b> | Deň budget: <b>' + dayBudget + ' ml</b></div>';
   summaryHtml += '<div style="font-size:13px;color:var(--muted)">Celkom plán: <b>' + totalPlan + ' ml</b> / cieľ ' + dailyTarget + ' ml</div>';
   if(w) summaryHtml += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Váha: ' + w.toFixed(1) + ' kg → ' + Math.round(w*150) + ' ml/deň</div>';
+  summaryHtml += '<div style="font-size:11px;color:var(--muted);margin-top:6px;opacity:0.6">Rytmus: deň ~' + Math.round(avgDayInterval) + ' min | noc ~' + Math.round(avgNightInterval) + ' min (z dát)</div>';
   document.getElementById('feed-plan-summary').innerHTML = summaryHtml;
 
-  // Plan list
+  // ===== PLAN LIST =====
   var listHtml = '';
   var nextFound = false;
   plan.forEach(function(p){
