@@ -37,8 +37,9 @@ button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font
 .btn-small{padding:10px 16px;font-size:14px;background:var(--card);color:var(--text);border:1px solid var(--border)}
 .btn-small.active{border-color:var(--blue);color:var(--blue)}
 .btn-small.active-ar{border-color:var(--purple);color:var(--purple)}
-.stepper{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
-.stepper button{width:64px;height:64px;border-radius:50%;font-size:28px;background:var(--card);color:var(--text);border:2px solid var(--border)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0}
+.stepper button{width:56px;height:56px;border-radius:50%;font-size:20px;background:var(--card);color:var(--text);border:2px solid var(--border)}
+.stepper button.sm{width:44px;height:44px;font-size:16px;opacity:0.7}
 .stepper button:active{background:var(--border)}
 input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"],input[type="time"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;max-width:100%;min-width:0;font-family:inherit;-webkit-appearance:none}
 .progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
@@ -270,9 +271,9 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <div class="stepper">
       <button onclick="adjustAmount(-30)">−30</button>
-      <button onclick="adjustAmount(-10)" style="font-size:18px;width:48px;height:48px">−10</button>
+      <button class="sm" onclick="adjustAmount(-10)">−10</button>
       <div class="big-num" id="add-amount">120</div>
-      <button onclick="adjustAmount(10)" style="font-size:18px;width:48px;height:48px">+10</button>
+      <button class="sm" onclick="adjustAmount(10)">+10</button>
       <button onclick="adjustAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
@@ -317,9 +318,9 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <div class="stepper">
       <button onclick="adjustEditAmount(-30)">−30</button>
-      <button onclick="adjustEditAmount(-10)" style="font-size:18px;width:48px;height:48px">−10</button>
+      <button class="sm" onclick="adjustEditAmount(-10)">−10</button>
       <div class="big-num" id="edit-amount">120</div>
-      <button onclick="adjustEditAmount(10)" style="font-size:18px;width:48px;height:48px">+10</button>
+      <button class="sm" onclick="adjustEditAmount(10)">+10</button>
       <button onclick="adjustEditAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
