@@ -98,6 +98,13 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .wetness-drop{width:8px;height:12px;border-radius:0 50% 50% 50%;transform:rotate(45deg);background:var(--border)}
 .wetness-drop.active{background:#4fc3f7}
 .pee-sizes button.active{border-color:#4fc3f7;color:#4fc3f7}
+.plan-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.plan-item.done{opacity:0.4}
+.plan-item.next{background:rgba(102,187,106,0.1);border-radius:12px;border:1px solid var(--green)}
+.plan-item .plan-time{font-size:16px;font-weight:700;min-width:50px}
+.plan-item .plan-detail{flex:1;font-size:14px}
+.plan-item .plan-type{font-size:12px;color:var(--muted)}
+.plan-night{background:rgba(206,147,216,0.1);border-radius:8px}
 .poop-celebration{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);opacity:0;transition:opacity .3s;pointer-events:none}
 .poop-celebration.active{opacity:1;pointer-events:auto}
 .poop-celebration .poop-msg{font-size:22px;font-weight:700;color:var(--text);text-align:center;padding:0 24px;line-height:1.4;animation:poopBounce .6s ease}
@@ -133,7 +140,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <h1 id="baby-header">🍼 Olivia</h1>
   <p id="baby-age" style="text-align:center;color:var(--muted);margin-bottom:12px"></p>
   <div id="home-warning"></div>
-  <div id="home-suggestion" class="suggestion"></div>
+  <div id="home-suggestion" class="suggestion" onclick="openFeedPlan()" style="cursor:pointer"></div>
   <div class="card">
     <div class="card-title">Posledné kŕmenie</div>
     <div class="row between">
@@ -318,6 +325,18 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <button class="btn-primary" onclick="saveEditFeed()" style="margin-top:12px">Uložiť</button>
     <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditFeed()">Vymazať záznam</button>
+  </div>
+</div>
+
+<!-- FEED PLAN MODAL -->
+<div id="feed-plan-modal" class="modal">
+  <div class="modal-content" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-header">
+      <h2>📋 Denný plán</h2>
+      <button class="close-btn" onclick="closeFeedPlan()">✕</button>
+    </div>
+    <div id="feed-plan-summary" class="card" style="margin-bottom:8px"></div>
+    <div id="feed-plan-list"></div>
   </div>
 </div>
 
@@ -775,6 +794,7 @@ function renderHome(){
     if(nextIn>0) sugText += '<br><small>Ďalšie kŕmenie za ~'+nextIn+' min</small>';
     else sugText += '<br><small>Čas na kŕmenie!</small>';
   }
+  sugText += '<br><small style="opacity:0.5">tap → denný plán</small>';
   sugEl.innerHTML = sugText;
 
   // Warning
@@ -1898,6 +1918,109 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', {upda
 window.addEventListener('online', function(){
   if(syncCode && !syncRef) initFirebase();
 });
+
+// ===== FEED PLAN =====
+function openFeedPlan(){
+  var s = getSuggestion();
+  var g = s.g;
+  var ageDays = getAgeDays();
+  var w = getLatestWeight();
+  var dailyTarget = s.dailyTarget;
+
+  // Night hours: 21:00 - 06:00
+  var nightStart = 21, nightEnd = 6;
+  var intervalH = ageDays <= 60 ? 3 : 3.5;
+  var feedCount = Math.round(24 / intervalH);
+  var dayAmount = s.suggested;
+  var nightAmount = 150; // AR milk at night
+
+  // Build schedule starting from first feed of the day
+  var firstFeed = 6; // 6:00
+  var plan = [];
+  var totalPlanned = 0;
+  for(var i = 0; i < feedCount; i++){
+    var hour = firstFeed + i * intervalH;
+    if(hour >= 24) hour -= 24;
+    var h = Math.floor(hour);
+    var m = Math.round((hour - h) * 60);
+    var isNight = h >= nightStart || h < nightEnd;
+    var amount = isNight ? nightAmount : dayAmount;
+    // Adjust last feeds if over target
+    if(totalPlanned + amount > dailyTarget + 30){
+      amount = Math.max(30, dailyTarget - totalPlanned);
+    }
+    var type = isNight ? 'ar' : 'formula';
+    plan.push({
+      hour: h,
+      min: m,
+      time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+      amount: amount,
+      type: type,
+      isNight: isNight
+    });
+    totalPlanned += amount;
+  }
+
+  // Sort by hour (handle overnight wrap)
+  plan.sort(function(a, b){
+    var ah = a.hour < nightEnd ? a.hour + 24 : a.hour;
+    var bh = b.hour < nightEnd ? b.hour + 24 : b.hour;
+    return ah - bh;
+  });
+
+  // Find which feeds are done today and which is next
+  var now = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; });
+
+  // Summary
+  var totalDay = plan.filter(function(p){ return !p.isNight; }).reduce(function(s,p){ return s + p.amount; }, 0);
+  var totalNight = plan.filter(function(p){ return p.isNight; }).reduce(function(s,p){ return s + p.amount; }, 0);
+  var summaryHtml = '<div class="card-title">Plán pre ' + (profile ? profile.name : 'bábätko') + '</div>';
+  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + feedCount + ' kŕmení</b> po ~' + intervalH + 'h</div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Deň: ' + totalDay + ' ml (🍼 mlieko) | Noc: ' + totalNight + ' ml (AR)</div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Cieľ: <b>' + dailyTarget + ' ml</b> / deň</div>';
+  if(w) summaryHtml += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Váha: ' + w.toFixed(1) + ' kg → ' + Math.round(w*150) + ' ml/deň (150ml/kg)</div>';
+  document.getElementById('feed-plan-summary').innerHTML = summaryHtml;
+
+  // Plan list
+  var listHtml = '';
+  var nextFound = false;
+  plan.forEach(function(p){
+    var planMins = p.hour * 60 + p.min;
+    // Check if a feed happened around this time (+/- 1h)
+    var isDone = todayFeeds.some(function(f){
+      var fd = new Date(f.timestamp);
+      var fMins = fd.getHours() * 60 + fd.getMinutes();
+      return Math.abs(fMins - planMins) < 60;
+    });
+    var isNext = !isDone && !nextFound && planMins >= nowMins - 30;
+    if(isNext) nextFound = true;
+
+    var cls = 'plan-item';
+    if(isDone) cls += ' done';
+    if(isNext) cls += ' next';
+    if(p.isNight) cls += ' plan-night';
+
+    listHtml += '<div class="' + cls + '">';
+    listHtml += '<span class="plan-time">' + p.time + '</span>';
+    listHtml += '<span class="plan-detail">';
+    listHtml += '<b>' + p.amount + ' ml</b>';
+    listHtml += '<span class="plan-type"> ' + (p.isNight ? '🌙 AR mlieko' : '☀️ Mlieko') + '</span>';
+    listHtml += '</span>';
+    if(isDone) listHtml += '<span style="color:var(--green)">✓</span>';
+    if(isNext) listHtml += '<span style="color:var(--green);font-size:12px;font-weight:700">TERAZ</span>';
+    listHtml += '</div>';
+  });
+  document.getElementById('feed-plan-list').innerHTML = listHtml;
+
+  document.getElementById('feed-plan-modal').classList.add('active');
+}
+
+function closeFeedPlan(){
+  document.getElementById('feed-plan-modal').classList.remove('active');
+}
 
 // ===== CELEBRATIONS =====
 var POOP_MESSAGES = [
