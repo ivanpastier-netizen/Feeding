@@ -749,11 +749,52 @@ function getSuggestion(){
   let dailyTarget = g.dailyMax;
   if(w) dailyTarget = Math.min(Math.round(w*150), g.dailyMax);
 
+  // Use same night reserve logic as the plan
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  var btParts = bedtime.split(':');
+  var btH = parseInt(btParts[0]);
+  var nightEnd = 6;
+  var now = new Date();
+  var nowH = now.getHours();
+  var isNightNow = nowH >= btH || nowH < nightEnd;
+
+  // Estimate night reserve from recent patterns (simplified)
+  var weekAgo = Date.now() - 7 * 86400000;
+  var recentFeeds = feeds.filter(function(f){ return f.timestamp >= weekAgo; });
+  var nightFeedCounts = [];
+  for(var d = 1; d < 7; d++){
+    var ds = new Date(now); ds.setDate(ds.getDate()-d); ds.setHours(btH,0,0,0);
+    var de = new Date(ds); de.setDate(de.getDate()+1); de.setHours(nightEnd,0,0,0);
+    nightFeedCounts.push(recentFeeds.filter(function(f){ return f.timestamp>=ds.getTime()&&f.timestamp<de.getTime(); }).length);
+  }
+  var avgNightFeeds = nightFeedCounts.length > 0
+    ? Math.round(nightFeedCounts.reduce(function(a,b){return a+b;},0) / nightFeedCounts.length) : 2;
+  avgNightFeeds = Math.max(1, Math.min(avgNightFeeds, 3));
+
+  // Today's feeds and remaining budget
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; });
+  var todayConsumed = todayFeeds.reduce(function(s,f){ return s+f.amount; }, 0);
+  var doneNight = todayFeeds.filter(function(f){ var fh=new Date(f.timestamp).getHours(); return fh>=btH||fh<nightEnd; }).length;
+  var futureNight = Math.max(0, (avgNightFeeds+1) - doneNight);
+  var nightReserve = futureNight * 150;
+  var dayBudget = Math.max(0, dailyTarget - todayConsumed - nightReserve);
+
+  // Estimate remaining day feeds (based on time until bedtime)
+  var avgDayInterval = ageDays <= 60 ? 180 : 210;
+  var btMins = btH * 60;
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var dayFeedsLeft = isNightNow ? 0 : Math.max(1, Math.round((btMins - nowMins) / avgDayInterval));
+
+  var suggested;
+  if(isNightNow){
+    suggested = 150; // Night: AR 150ml
+  } else {
+    suggested = dayFeedsLeft > 0 ? Math.round(dayBudget / dayFeedsLeft / 30) * 30 : g.min;
+    suggested = Math.max(90, Math.min(suggested, g.max));
+  }
+
   const remaining = Math.max(0, dailyTarget - stats.total);
-  const feedsLeft = Math.max(1, Math.round(g.feedsMin - stats.count));
-  let suggested = Math.round(remaining / feedsLeft / 30) * 30;
-  suggested = Math.max(g.min, Math.min(suggested, g.max));
-  suggested = Math.max(30, suggested);
 
   let warning = null;
   if(stats.total >= g.dailyMax) warning = {level:'red', text:'⚠️ Denný limit dosiahnutý! ('+stats.total+'/'+g.dailyMax+' ml)'};
@@ -2334,7 +2375,7 @@ function showCelebration(emoji, messages, confettiExtra){
   }
 
   cele.classList.add('active');
-  setTimeout(function(){ closeCelebration(); }, 3500);
+  setTimeout(function(){ closeCelebration(); }, 5000);
 }
 
 function closeCelebration(){
