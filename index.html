@@ -2051,51 +2051,70 @@ function renderFeedPlan(){
     });
   }
 
-  var futurePlanned = 0;
+  // Pre-calculate actual available day feed slots (before filling)
+  var daySlots = [];
+  var scanMins = nextMins;
+  while(scanMins < btMins * 1.0){
+    var sMins = scanMins >= 1440 ? scanMins - 1440 : scanMins;
+    var sh = Math.floor(sMins / 60) % 24;
+    var sm = sMins % 60;
+    sm = Math.round(sm / 15) * 15; if(sm >= 60){ sh++; sm = 0; } sh = sh % 24;
+    var slotMins = sh * 60 + sm;
+    var isNight = sh >= btH || sh < nightEnd;
+    var slotTooClose = plan.some(function(p){ return Math.abs(p.mins - slotMins) < 30; });
+    if(!slotTooClose && slotMins > nowMins - 10 && !isNight){
+      daySlots.push({hour: sh, min: sm, mins: slotMins});
+    }
+    scanMins += intervalMins;
+  }
+
+  // Distribute day budget: min 90ml per feed, reduce slots if needed
+  var minFeed = ageDays <= 60 ? 60 : 90;
+  while(daySlots.length > 1 && dayBudget / daySlots.length < minFeed) daySlots.pop();
+  if(daySlots.length > 0 && dayBudget < minFeed) daySlots = [];
+
+  // Calculate amount per day feed (even split, round to 30ml)
+  var dayFeedAmount = daySlots.length > 0 ? Math.round(dayBudget / daySlots.length / 30) * 30 : 0;
+  dayFeedAmount = Math.min(dayFeedAmount, g.max);
+
+  // Add day feeds
   var dayRemaining = dayBudget;
-  while(nextMins < 1440 + nightEnd * 60 && futurePlanned < 10){
-    var feedMins = nextMins >= 1440 ? nextMins - 1440 : nextMins;
+  daySlots.forEach(function(slot, idx){
+    var amount = (idx === daySlots.length - 1) ? dayRemaining : Math.min(dayFeedAmount, dayRemaining);
+    amount = Math.max(minFeed, Math.min(amount, g.max));
+    amount = Math.min(amount, dayRemaining);
+    if(amount >= minFeed){
+      plan.push({
+        hour: slot.hour, min: slot.min, mins: slot.mins,
+        time: String(slot.hour).padStart(2,'0') + ':' + String(slot.min).padStart(2,'0'),
+        amount: amount, type: 'formula', isNight: false,
+        done: false, isBedtime: false
+      });
+      dayRemaining = Math.max(0, dayRemaining - amount);
+    }
+  });
+
+  // Add night feeds (after bedtime)
+  var futurePlanned = 0;
+  var nightScanMins = btMins + intervalMins;
+  while(nightScanMins < 1440 + nightEnd * 60 && futurePlanned < 10){
+    var feedMins = nightScanMins >= 1440 ? nightScanMins - 1440 : nightScanMins;
     var h = Math.floor(feedMins / 60) % 24;
     var m = feedMins % 60;
     m = Math.round(m / 15) * 15; if(m >= 60){ h++; m = 0; } h = h % 24;
     var mins = h * 60 + m;
 
     var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 30; });
-    if(!tooClose && mins > nowMins - 10){
-      var isNight = h >= btH || h < nightEnd;
-
-      if(isNight){
-        // Night feed: always 150ml AR, part of the reserved budget
-        plan.push({
-          hour: h, min: m, mins: mins,
-          time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
-          amount: nightAmount, type: 'ar', isNight: true,
-          done: false, isBedtime: false
-        });
-        futurePlanned++;
-      } else if(dayRemaining >= 60){
-        // Day feed: distribute remaining day budget
-        // Calculate how many feeds we can fit with at least 60ml each
-        var futureDaySlots = 0;
-        for(var t = mins; t < btMins; t += intervalMins) futureDaySlots++;
-        futureDaySlots = Math.max(1, futureDaySlots);
-        // Reduce slots if amount per feed would be too small
-        while(futureDaySlots > 1 && dayRemaining / futureDaySlots < 60) futureDaySlots--;
-        var amount = Math.round(dayRemaining / futureDaySlots / 30) * 30;
-        amount = Math.max(60, Math.min(amount, g.max));
-        amount = Math.min(amount, dayRemaining);
-
-        plan.push({
-          hour: h, min: m, mins: mins,
-          time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
-          amount: amount, type: 'formula', isNight: false,
-          done: false, isBedtime: false
-        });
-        dayRemaining = Math.max(0, dayRemaining - amount);
-        futurePlanned++;
-      }
+    if(!tooClose){
+      plan.push({
+        hour: h, min: m, mins: mins,
+        time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+        amount: nightAmount, type: 'ar', isNight: true,
+        done: false, isBedtime: false
+      });
+      futurePlanned++;
     }
-    nextMins += intervalMins;
+    nightScanMins += intervalMins;
   }
 
   // Sort
