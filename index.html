@@ -752,7 +752,7 @@ function getSuggestion(){
   // Use same night reserve logic as the plan
   var bedtime = LS.get('fp_bedtime', '20:00');
   var btParts = bedtime.split(':');
-  var btH = parseInt(btParts[0]);
+  var btH = parseInt(btParts[0]), btM = parseInt(btParts[1] || 0);
   var nightEnd = 6;
   var now = new Date();
   var nowH = now.getHours();
