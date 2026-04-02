@@ -357,53 +357,29 @@ function connectSync(code){
     if(!data || isSyncing) return;
     isSyncing = true;
     try {
-      // Merge feeds by id (union, latest timestamp wins for dupes)
-      if(data.feeds){
-        var remoteFeeds = data.feeds;
-        var feedMap = {};
-        feeds.forEach(function(f){ feedMap[f.id] = f; });
-        remoteFeeds.forEach(function(f){
-          if(!feedMap[f.id] || f.timestamp > feedMap[f.id].timestamp){
-            feedMap[f.id] = f;
-          }
-        });
-        feeds = Object.values(feedMap).sort(function(a,b){ return b.timestamp - a.timestamp; });
-      }
+      var localMod = LS.get('fp_last_modified', 0);
+      // Only accept remote data if it's newer than local
+      if(data.lastModified && data.lastModified > localMod){
+        if(data.profile) profile = data.profile;
+        if(data.feeds) feeds = data.feeds;
+        else feeds = [];
+        if(data.weights) weights = data.weights;
+        else weights = [];
 
-      // Merge weights by id
-      if(data.weights){
-        var remoteWeights = data.weights;
-        var weightMap = {};
-        weights.forEach(function(w){ weightMap[w.id] = w; });
-        remoteWeights.forEach(function(w){
-          if(!weightMap[w.id] || w.timestamp > weightMap[w.id].timestamp){
-            weightMap[w.id] = w;
-          }
-        });
-        weights = Object.values(weightMap).sort(function(a,b){ return b.timestamp - a.timestamp; });
-      }
+        LS.set('fp_profile', profile);
+        LS.set('fp_feeds', feeds);
+        LS.set('fp_weights', weights);
+        LS.set('fp_last_modified', data.lastModified);
 
-      // Profile: use remote if newer
-      if(data.profile && data.lastModified){
-        var localMod = LS.get('fp_last_modified', 0);
-        if(data.lastModified > localMod){
-          profile = data.profile;
+        // Re-render current view
+        var activeView = document.querySelector('.view.active');
+        if(activeView){
+          var id = activeView.id;
+          if(id === 'home') renderHome();
+          else if(id === 'history') renderHistory();
+          else if(id === 'trends') renderTrends();
+          else if(id === 'settings') renderSettings();
         }
-      }
-
-      // Save merged data locally
-      LS.set('fp_profile', profile);
-      LS.set('fp_feeds', feeds);
-      LS.set('fp_weights', weights);
-
-      // Re-render current view
-      var activeView = document.querySelector('.view.active');
-      if(activeView){
-        var id = activeView.id;
-        if(id === 'home') renderHome();
-        else if(id === 'history') renderHistory();
-        else if(id === 'trends') renderTrends();
-        else if(id === 'settings') renderSettings();
       }
     } catch(e){ console.warn('Sync merge error:', e); }
     isSyncing = false;
