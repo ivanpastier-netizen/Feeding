@@ -197,9 +197,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button class="btn-primary" onclick="importData()" style="margin-top:8px">Importovať</button>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">Vymazať dáta</div>
-    <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 Vymazať všetky dáta</button>
+  <div class="card" style="margin-top:24px">
+    <button class="btn-small" style="width:100%;color:var(--muted);border-color:var(--border)" onclick="toggleDangerZone()">Nebezpečná zóna</button>
+    <div id="danger-zone" style="display:none;margin-top:12px">
+      <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 Vymazať všetky dáta</button>
+    </div>
   </div>
 </div>
 
@@ -1003,7 +1005,13 @@ function renderWeightChart(){
 let addType = 'formula';
 let addAmount = 120;
 
+function requireSync(){
+  if(!syncRef){ alert('Nie ste pripojený k sync. Pripojte sa v Nastaveniach.'); return false; }
+  return true;
+}
+
 function openAddModal(){
+  if(!requireSync()) return;
   const s = getSuggestion();
   addAmount = s.suggested;
   addType = 'formula';
@@ -1032,6 +1040,7 @@ function adjustAmount(delta){
 }
 
 function saveFeed(){
+  if(!requireSync()) return;
   const timeVal = document.getElementById('add-time').value;
   const ts = new Date(timeVal).getTime();
   feeds.push({id: Date.now(), timestamp: ts, amount: addAmount, type: addType});
@@ -1041,12 +1050,14 @@ function saveFeed(){
 }
 
 function deleteFeed(id){
+  if(!requireSync()) return;
   feeds = feeds.filter(f=>f.id!==id);
   saveAll();
   renderHistory();
 }
 
 function deleteWeight(id){
+  if(!requireSync()) return;
   weights = weights.filter(w=>w.id!==id);
   saveAll();
   renderTrends();
@@ -1086,6 +1097,7 @@ function adjustEditAmount(delta){
   document.getElementById('edit-amount').textContent = editAmount;
 }
 function saveEditFeed(){
+  if(!requireSync()) return;
   const f = feeds.find(x=>x.id===editFeedId);
   if(!f) return;
   f.amount = editAmount;
@@ -1100,6 +1112,7 @@ function saveEditFeed(){
 let editWeightId = null;
 
 function openWeightModal(){
+  if(!requireSync()) return;
   editWeightId = null;
   document.getElementById('weight-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('weight-input').value = '';
@@ -1118,6 +1131,7 @@ function openEditWeight(id){
 function closeWeightModal(){document.getElementById('weight-modal').classList.remove('active')}
 
 function saveWeight(){
+  if(!requireSync()) return;
   const kg = parseFloat(document.getElementById('weight-input').value);
   const date = document.getElementById('weight-date').value;
   if(!kg||!date) return;
@@ -1205,9 +1219,16 @@ function importData(){
   }
 }
 
+function toggleDangerZone(){
+  var dz = document.getElementById('danger-zone');
+  dz.style.display = dz.style.display === 'none' ? 'block' : 'none';
+}
+
 function resetData(){
   if(!confirm('Naozaj chcete vymazať všetky dáta? Táto akcia sa nedá vrátiť.')) return;
   if(!confirm('Ste si istý? Všetky kŕmenia a váhy budú vymazané.')) return;
+  var name = prompt('Pre potvrdenie napíšte meno dieťaťa:');
+  if(!name || name.trim().toLowerCase() !== (profile && profile.name || '').toLowerCase()){ alert('Nesprávne meno. Vymazanie zrušené.'); return; }
   disconnectSync();
   localStorage.removeItem('fp_profile');
   localStorage.removeItem('fp_feeds');
