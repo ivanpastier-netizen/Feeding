@@ -335,6 +335,12 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <h2>📋 Denný plán</h2>
       <button class="close-btn" onclick="closeFeedPlan()">✕</button>
     </div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:13px;color:var(--muted)">🛏️ Spánok o</span>
+        <input type="time" id="bedtime-input" style="flex:1;font-size:16px" onchange="saveBedtime()">
+      </div>
+    </div>
     <div id="feed-plan-summary" class="card" style="margin-bottom:8px"></div>
     <div id="feed-plan-list"></div>
   </div>
@@ -1920,106 +1926,179 @@ window.addEventListener('online', function(){
 });
 
 // ===== FEED PLAN =====
+function saveBedtime(){
+  var val = document.getElementById('bedtime-input').value;
+  if(val) LS.set('fp_bedtime', val);
+  renderFeedPlan();
+}
+
 function openFeedPlan(){
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  document.getElementById('bedtime-input').value = bedtime;
+  renderFeedPlan();
+  document.getElementById('feed-plan-modal').classList.add('active');
+}
+
+function closeFeedPlan(){
+  document.getElementById('feed-plan-modal').classList.remove('active');
+}
+
+function renderFeedPlan(){
   var s = getSuggestion();
   var g = s.g;
   var ageDays = getAgeDays();
   var w = getLatestWeight();
   var dailyTarget = s.dailyTarget;
+  var nightAmount = 150;
+  var nightEnd = 6;
 
-  // Night hours: 21:00 - 06:00
-  var nightStart = 20, nightEnd = 6;
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  var btParts = bedtime.split(':');
+  var btH = parseInt(btParts[0]), btM = parseInt(btParts[1] || 0);
+  var btMins = btH * 60 + btM;
+
   var intervalH = ageDays <= 60 ? 3 : 3.5;
-  var feedCount = Math.round(24 / intervalH);
-  var dayAmount = s.suggested;
-  var nightAmount = 150; // AR milk at night
+  var intervalMins = Math.round(intervalH * 60);
 
-  // Build schedule starting from first feed of the day
-  var firstFeed = 6; // 6:00
-  var plan = [];
-  var totalPlanned = 0;
-  for(var i = 0; i < feedCount; i++){
-    var hour = firstFeed + i * intervalH;
-    if(hour >= 24) hour -= 24;
-    var h = Math.floor(hour);
-    var m = Math.round((hour - h) * 60);
-    var isNight = h >= nightStart || h < nightEnd;
-    var amount = isNight ? nightAmount : dayAmount;
-    // Adjust last feeds if over target
-    if(totalPlanned + amount > dailyTarget + 30){
-      amount = Math.max(30, dailyTarget - totalPlanned);
-    }
-    var type = isNight ? 'ar' : 'formula';
-    plan.push({
-      hour: h,
-      min: m,
-      time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
-      amount: amount,
-      type: type,
-      isNight: isNight
-    });
-    totalPlanned += amount;
-  }
-
-  // Sort by hour (handle overnight wrap)
-  plan.sort(function(a, b){
-    var ah = a.hour < nightEnd ? a.hour + 24 : a.hour;
-    var bh = b.hour < nightEnd ? b.hour + 24 : b.hour;
-    return ah - bh;
-  });
-
-  // Find which feeds are done today and which is next
   var now = new Date();
   var nowMins = now.getHours() * 60 + now.getMinutes();
   var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; });
+  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; })
+    .sort(function(a,b){ return a.timestamp - b.timestamp; });
+
+  // Find last actual feed (today or yesterday)
+  var allSorted = [...feeds].sort(function(a,b){ return b.timestamp - a.timestamp; });
+  var lastFeed = allSorted[0];
+  var lastFeedMins = null;
+  if(lastFeed){
+    var lfd = new Date(lastFeed.timestamp);
+    if(lfd.toDateString() === now.toDateString()){
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes();
+    } else {
+      // Yesterday's last feed — treat as early morning anchor
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes() - 1440;
+    }
+  }
+
+  // Build dynamic plan: start from last feed, project forward
+  var plan = [];
+  var alreadyConsumed = todayFeeds.reduce(function(s,f){ return s + f.amount; }, 0);
+  var remaining = Math.max(0, dailyTarget - alreadyConsumed);
+
+  // Add today's actual feeds first
+  var usedMins = {};
+  todayFeeds.forEach(function(f){
+    var fd = new Date(f.timestamp);
+    var h = fd.getHours(), m = fd.getMinutes();
+    var mins = h * 60 + m;
+    plan.push({
+      hour: h, min: m, mins: mins,
+      time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+      amount: f.amount, type: f.type,
+      isNight: h >= btH || h < nightEnd,
+      done: true
+    });
+    usedMins[Math.round(mins / 30) * 30] = true;
+  });
+
+  // Project future feeds from now
+  var nextMins;
+  if(lastFeedMins !== null && lastFeedMins + intervalMins > nowMins){
+    nextMins = lastFeedMins + intervalMins;
+  } else {
+    nextMins = nowMins + 15; // Soon
+  }
+
+  // Bedtime feed: ensure one at bedtime with AR 150ml
+  var btSlotUsed = todayFeeds.some(function(f){
+    var fd = new Date(f.timestamp);
+    return Math.abs((fd.getHours()*60+fd.getMinutes()) - btMins) < 45;
+  });
+
+  var futurePlanned = 0;
+  var maxFuture = 10;
+  while(nextMins < 1440 + nightEnd * 60 && futurePlanned < maxFuture){
+    var feedMins = nextMins >= 1440 ? nextMins - 1440 : nextMins;
+    var h = Math.floor(feedMins / 60) % 24;
+    var m = feedMins % 60;
+    m = Math.round(m / 15) * 15; if(m >= 60){ h++; m = 0; } h = h % 24;
+    var mins = h * 60 + m;
+
+    // Skip if too close to an existing feed
+    var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 30; });
+    if(!tooClose && mins > nowMins - 10){
+      var isNight = h >= btH || h < nightEnd;
+      var isBedtime = Math.abs(mins - btMins) < 45;
+
+      var amount;
+      if(isBedtime || isNight){
+        amount = nightAmount;
+      } else {
+        var feedsLeftCount = Math.max(1, Math.ceil((btMins - mins) / intervalMins));
+        amount = Math.round(remaining / feedsLeftCount / 30) * 30;
+        amount = Math.max(g.min, Math.min(amount, g.max));
+      }
+
+      if(remaining > 0 || isNight){
+        plan.push({
+          hour: h, min: m, mins: mins,
+          time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+          amount: amount,
+          type: isNight ? 'ar' : 'formula',
+          isNight: isNight,
+          done: false,
+          isBedtime: isBedtime
+        });
+        if(!isNight) remaining = Math.max(0, remaining - amount);
+        futurePlanned++;
+      }
+    }
+    nextMins += intervalMins;
+  }
+
+  // Sort all by time
+  plan.sort(function(a,b){
+    var am = a.mins < nightEnd * 60 && !a.done ? a.mins + 1440 : a.mins;
+    var bm = b.mins < nightEnd * 60 && !b.done ? b.mins + 1440 : b.mins;
+    return am - bm;
+  });
 
   // Summary
-  var totalDay = plan.filter(function(p){ return !p.isNight; }).reduce(function(s,p){ return s + p.amount; }, 0);
-  var totalNight = plan.filter(function(p){ return p.isNight; }).reduce(function(s,p){ return s + p.amount; }, 0);
+  var totalPlan = plan.reduce(function(s,p){ return s + p.amount; }, 0);
+  var dayFeeds = plan.filter(function(p){ return !p.isNight; });
+  var nightFeeds = plan.filter(function(p){ return p.isNight; });
   var summaryHtml = '<div class="card-title">Plán pre ' + (profile ? profile.name : 'bábätko') + '</div>';
-  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + feedCount + ' kŕmení</b> po ~' + intervalH + 'h</div>';
-  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Deň: ' + totalDay + ' ml (🍼 mlieko) | Noc: ' + totalNight + ' ml (AR)</div>';
-  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Cieľ: <b>' + dailyTarget + ' ml</b> / deň</div>';
-  if(w) summaryHtml += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Váha: ' + w.toFixed(1) + ' kg → ' + Math.round(w*150) + ' ml/deň (150ml/kg)</div>';
+  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + plan.length + ' kŕmení</b> | interval ~' + intervalH + 'h</div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">☀️ ' + dayFeeds.length + '× mlieko | 🌙 ' + nightFeeds.length + '× AR</div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Zjedené: <b>' + alreadyConsumed + ' ml</b> | Zostáva: <b>' + remaining + ' ml</b></div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Celkom plán: <b>' + totalPlan + ' ml</b> / cieľ ' + dailyTarget + ' ml</div>';
+  if(w) summaryHtml += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Váha: ' + w.toFixed(1) + ' kg → ' + Math.round(w*150) + ' ml/deň</div>';
   document.getElementById('feed-plan-summary').innerHTML = summaryHtml;
 
   // Plan list
   var listHtml = '';
   var nextFound = false;
   plan.forEach(function(p){
-    var planMins = p.hour * 60 + p.min;
-    // Check if a feed happened around this time (+/- 1h)
-    var isDone = todayFeeds.some(function(f){
-      var fd = new Date(f.timestamp);
-      var fMins = fd.getHours() * 60 + fd.getMinutes();
-      return Math.abs(fMins - planMins) < 60;
-    });
-    var isNext = !isDone && !nextFound && planMins >= nowMins - 30;
+    var isNext = !p.done && !nextFound;
     if(isNext) nextFound = true;
 
     var cls = 'plan-item';
-    if(isDone) cls += ' done';
+    if(p.done) cls += ' done';
     if(isNext) cls += ' next';
-    if(p.isNight) cls += ' plan-night';
+    if(p.isNight && !p.done) cls += ' plan-night';
 
     listHtml += '<div class="' + cls + '">';
     listHtml += '<span class="plan-time">' + p.time + '</span>';
     listHtml += '<span class="plan-detail">';
     listHtml += '<b>' + p.amount + ' ml</b>';
-    listHtml += '<span class="plan-type"> ' + (p.isNight ? '🌙 AR mlieko' : '☀️ Mlieko') + '</span>';
+    if(p.isBedtime) listHtml += '<span class="plan-type"> 🛏️ AR — spánok</span>';
+    else listHtml += '<span class="plan-type"> ' + (p.isNight ? '🌙 AR' : '☀️ Mlieko') + '</span>';
     listHtml += '</span>';
-    if(isDone) listHtml += '<span style="color:var(--green)">✓</span>';
-    if(isNext) listHtml += '<span style="color:var(--green);font-size:12px;font-weight:700">TERAZ</span>';
+    if(p.done) listHtml += '<span style="color:var(--green)">✓</span>';
+    if(isNext) listHtml += '<span style="color:var(--green);font-size:12px;font-weight:700">ĎALŠIE</span>';
     listHtml += '</div>';
   });
   document.getElementById('feed-plan-list').innerHTML = listHtml;
-
-  document.getElementById('feed-plan-modal').classList.add('active');
-}
-
-function closeFeedPlan(){
-  document.getElementById('feed-plan-modal').classList.remove('active');
 }
 
 // ===== CELEBRATIONS =====
