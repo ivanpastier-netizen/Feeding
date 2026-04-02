@@ -2013,16 +2013,21 @@ function renderFeedPlan(){
     });
   });
 
-  // Estimate future night feed count (bedtime to 6am, every intervalH)
-  var nightHours = (24 - btH) + nightEnd;
-  var futureNightCount = Math.max(1, Math.round(nightHours / intervalH));
-  // Subtract already-eaten night feeds
-  var doneNightCount = todayFeeds.filter(function(f){
-    var fh = new Date(f.timestamp).getHours();
-    return fh >= btH || fh < nightEnd;
-  }).length;
-  var remainingNightCount = Math.max(0, futureNightCount - doneNightCount);
-  var nightReserve = remainingNightCount * nightAmount;
+  // Count future night feeds: bedtime slot + feeds every intervalH until 6am
+  // Only count feeds that haven't happened yet (after now)
+  var futureNightSlots = [];
+  // Bedtime slot
+  if(btMins > nowMins) futureNightSlots.push(btMins);
+  // After bedtime until 6am
+  var t = btMins + intervalMins;
+  while(t < 1440 + nightEnd * 60){
+    var slotMins = t >= 1440 ? t - 1440 : t;
+    // Only count if in the future
+    var slotDone = plan.some(function(p){ return p.done && Math.abs(p.mins - slotMins) < 45; });
+    if(!slotDone) futureNightSlots.push(slotMins);
+    t += intervalMins;
+  }
+  var nightReserve = futureNightSlots.length * nightAmount;
 
   // Budget for day feeds = target - eaten - night reserve
   var dayBudget = Math.max(0, dailyTarget - alreadyConsumed - nightReserve);
