@@ -1369,6 +1369,7 @@ function saveFeed(){
   saveAll();
   closeAddModal();
   showView('home');
+  showCelebration('🍼', FEED_MESSAGES, ['🍼','🥛','🧈']);
 }
 
 function deleteFeed(id){
@@ -1540,6 +1541,7 @@ function savePee(){
   saveAll();
   closePeeModal();
   showView('home');
+  showCelebration('💧', PEE_MESSAGES, ['💧','🧷','🧼']);
 }
 
 function deletePee(id){
@@ -1648,7 +1650,7 @@ function savePoop(){
   saveAll();
   closePoopModal();
   showView('home');
-  showPoopCelebration();
+  showCelebration('💩', POOP_MESSAGES, ['💩','🧻','🧷']);
 }
 
 function deletePoop(id){
@@ -1897,7 +1899,7 @@ window.addEventListener('online', function(){
   if(syncCode && !syncRef) initFirebase();
 });
 
-// ===== POOP CELEBRATION =====
+// ===== CELEBRATIONS =====
 var POOP_MESSAGES = [
   'Olivke sa teraz bude určite lepšie! 🎉',
   'Olivke sa podarilo krásne hovienko! 👏',
@@ -1922,29 +1924,108 @@ var POOP_MESSAGES = [
   'Olivka — kráľovná kakošáku! 👑',
   'Perfektné načasovanie! Olivka je génius! 🧠',
   'Bruško šťastné, rodičia šťastní! 🥰',
-  'A je to! Plienka č. ' + (poops.length) + ' úspešne splnená! 📋',
+  'Olivka to dala! Plienka splnená! 📋',
   'Olivka povedala: to bol výborný obed! 🍽️'
 ];
-var CONFETTI_ITEMS = ['🎉','⭐','🌟','✨','🎊','💫','🎈','🥳','💩','🎶'];
 
-function showPoopCelebration(){
+var FEED_MESSAGES = [
+  'Olivka papala ako šampiónka! 🏆',
+  'Mňam mňam! Olivka si pochutila! 😋',
+  'Fľaška prázdna, bruško plné! 🍼',
+  'Olivka rastie do krásy! 🌸',
+  'Výborne! Každý mililiter sa počíta! 💪',
+  'Olivka si dala poriadnu dávku! 👏',
+  'Mliečna kráľovná Olivka! 👸',
+  'Olivka to vypila na ex! 🥛',
+  'Ďalšie kŕmenie, ďalší úspech! ⭐',
+  'Super mamka, super bábätko! 🥰',
+  'Olivka ďakuje za jedlo! 🙏',
+  'To šlo ako po masle! 🧈',
+  'Olivkin žalúdoček je spokojný! 😊',
+  'Fľaštička číslo... veľa! A stále ide! 🚀',
+  'Olivka pije, svet sa točí! 🌍',
+  'Výborný obed, Olivka! 🍽️',
+  'Mlieko je najlepší nápoj! Olivka súhlasí! 🥇',
+  'Papaj, Olivka, papaj! 🎶',
+  'Toto bolo rýchle kŕmenie! Nový rekord? ⏱️',
+  'Olivka si doplnila energiu! ⚡',
+  'Každé kŕmenie je krok k veľkej Olivke! 👣',
+  'Olivka: mlieko prosím! Mamka: nech sa páči! 💝',
+  'Bruško plné = šťastná Olivka! 🎉',
+  'A je to v brušteku! Výborne! 🎯',
+  'Olivka jedla ako veľká! 🌟',
+  'Mliečko zmizlo ako mágia! 🪄',
+  'Olivka si zaslúži pochvalu! Papala krásne! 💖',
+  'To bolo dobré, Olivka? Samozrejme! 😄',
+  'Olivkin denný plán: piť mlieko a byť krásna! ✨',
+  'Fľaška K.O.! Olivka vyhráva! 🥊',
+  'Kto tu krásne papá? Olivka! 🍼',
+  'Olivka rastie každým dúškom! 📈',
+  'Perfektné kŕmenie! Mamka je hrdá! 🏅',
+  'Olivka si dala mliečko na zdravie! 💚',
+  'Ďalší mililiter, ďalší úsmev! 😁',
+  'Olivka: najlepšia zákazníčka mliečneho baru! 🍹',
+  'To bolo parádne kŕmenie! 🎊',
+  'Olivka papala a svet je krajší! 🌈',
+  'Výborne, Olivka! Mliečko je tvoj superschopnosť! 🦸‍♀️',
+  'Olivka si pochutila na každej kvapke! 💧',
+  'Noc alebo deň — Olivka vždy papá s chuťou! 🌙',
+  'Olivkin žalúdok: ďakujem, bolo výborné! 😌',
+  'Mlieko + Olivka = dokonalý pár! 💑',
+  'Olivka dnes papá ako profík! 🎓',
+  'Super dávka! Olivka je spokojná! 😍',
+  'A fľaška je fuč! Bravo Olivka! 🎈',
+  'Olivka vypila mliečko — svet je v poriadku! 🌞',
+  'Tento dúšok bol za mamku, tento za ocka! 👨‍👩‍👧',
+  'Olivka: som plná, ďakujem! Zatiaľ! 👋',
+  'Kŕmenie splnené! Čo bude ďalej? Spánok? 😴'
+];
+
+var PEE_MESSAGES = [
+  'Olivka si uľavila! Čistá plienka ide! 🧷',
+  'Ciky ciky! Olivka je čistotná! ✨',
+  'Nová plienka, nový pocit! 🌸',
+  'Olivka: plienku prosím vymeniť! Hotovo! ✅',
+  'Čistá Olivka = šťastná Olivka! 😊',
+  'Plienka vymenená, pohodička! 🛋️',
+  'Olivka si oddýchne v čistom! 💫',
+  'Výmena plienky — rýchlejšia ako blesk! ⚡',
+  'Olivka ďakuje za svieži pocit! 🙏',
+  'Cikošák úspešne splnený! 🎯',
+  'Olivka je zase čerstvá ako kvietok! 🌺',
+  'Plienková výmena č. ??? — a stále s úsmevom! 😅',
+  'Olivkin zadoček ďakuje! 🍑',
+  'Čistota je základ! Olivka to vie! 🧼',
+  'Ďalšia plienka do zbierky! 📊',
+  'Olivka: hydratácia funguje! 💧',
+  'Čiky splnené, ideme ďalej! 🚶‍♀️',
+  'Suchá Olivka je najlepšia Olivka! 🌟',
+  'Plienka zmenená v rekordnom čase! ⏱️',
+  'Olivka je kráľovná čistoty! 👑'
+];
+
+var CONFETTI_ITEMS = ['🎉','⭐','🌟','✨','🎊','💫','🎈','🥳','🎶'];
+
+function showCelebration(emoji, messages, confettiExtra){
   var cele = document.getElementById('poop-celebration');
-  var msg = POOP_MESSAGES[Math.floor(Math.random() * POOP_MESSAGES.length)];
+  var msg = messages[Math.floor(Math.random() * messages.length)];
   document.getElementById('poop-cele-msg').textContent = msg;
+  document.getElementById('poop-cele-emoji').textContent = emoji;
   // Reset emoji animation
-  var emoji = document.getElementById('poop-cele-emoji');
-  emoji.style.animation = 'none';
-  emoji.offsetHeight;
-  emoji.style.animation = '';
+  var emojiEl = document.getElementById('poop-cele-emoji');
+  emojiEl.style.animation = 'none';
+  emojiEl.offsetHeight;
+  emojiEl.style.animation = '';
 
   // Remove old confetti
   cele.querySelectorAll('.poop-confetti').forEach(function(c){ c.remove(); });
 
   // Add confetti
+  var items = CONFETTI_ITEMS.concat(confettiExtra || []);
   for(var i = 0; i < 20; i++){
     var c = document.createElement('div');
     c.className = 'poop-confetti';
-    c.textContent = CONFETTI_ITEMS[Math.floor(Math.random() * CONFETTI_ITEMS.length)];
+    c.textContent = items[Math.floor(Math.random() * items.length)];
     c.style.left = Math.random() * 100 + '%';
     c.style.top = '-20px';
     c.style.animationDelay = (Math.random() * 0.8) + 's';
