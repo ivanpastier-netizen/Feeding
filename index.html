@@ -30,7 +30,7 @@ h2{font-size:18px;margin-bottom:8px;color:var(--pink)}
 .row{display:flex;gap:8px;align-items:center}
 .row.between{justify-content:space-between}
 .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
-.badge.formula{background:var(--blue);color:#000}
+.badge.formula{background:#e0e0e0;color:#333}
 .badge.ar{background:var(--purple);color:#000}
 button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font-size:16px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .btn-primary{background:var(--green);color:#000;width:100%;font-size:18px;padding:16px}
@@ -43,10 +43,11 @@ button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font
 input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
 .progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
 .progress-fill{height:100%;border-radius:5px;transition:width .3s}
-.feed-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .feed-item:last-child{border:none}
-.feed-time{font-size:14px;color:var(--muted);width:50px}
-.feed-amount{font-size:18px;font-weight:700}
+.feed-time{font-size:14px;color:var(--muted);min-width:42px}
+.feed-amount{font-size:16px;font-weight:700;flex:1}
+.feed-actions{display:flex;gap:4px;flex-shrink:0}
 .warning{background:#3e2723;border:1px solid var(--amber);color:var(--amber);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
 .warning.red{background:#3e1515;border-color:var(--red);color:var(--red)}
 .suggestion{background:#1b3a1b;border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:12px;text-align:center}
@@ -777,7 +778,7 @@ function renderHome(){
     const d = new Date(s.lastFeed.timestamp);
     document.getElementById('last-feed-time').textContent = d.toLocaleDateString('sk-SK')+' '+fmt(d);
     document.getElementById('last-feed-amount').textContent = s.lastFeed.amount+' ml';
-    document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'Mlieko')+'</span>';
+    document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'🍼 Mlieko')+'</span>';
     const mins = Math.round(s.timeSince/60000);
     if(mins < 60) document.getElementById('last-feed-ago').textContent = 'pred '+mins+' min';
     else {
@@ -872,11 +873,12 @@ function renderHistory(){
         var f = item.data;
         html += '<div class="feed-item">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
-        html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
+        html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'🍼')+'</span>';
         html += '<span class="feed-amount">'+f.amount+' ml</span>';
+        html += '<div class="feed-actions">';
         html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
         html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
-        html += '</div>';
+        html += '</div></div>';
       } else if(item.type === 'poop'){
         var p = item.data;
         html += '<div class="feed-item">';
@@ -884,18 +886,20 @@ function renderHistory(){
         html += '<span class="badge poop">💩</span>';
         html += '<span class="poop-dot" style="background:'+p.color+'"></span>';
         html += '<span class="feed-amount">'+(POOP_SIZE_LABELS[p.size]||p.size)+'</span>';
+        html += '<div class="feed-actions">';
         html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPoopModal('+p.id+')">✎</button>';
         html += '<button class="delete-btn" onclick="deletePoop('+p.id+')">✕</button>';
-        html += '</div>';
+        html += '</div></div>';
       } else {
         var pe = item.data;
         html += '<div class="feed-item">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
         html += '<span class="badge pee">💧</span>';
         html += '<span class="feed-amount">'+(PEE_LABELS[pe.wetness]||pe.wetness)+wetnessDrops(pe.wetness)+'</span>';
+        html += '<div class="feed-actions">';
         html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPeeModal('+pe.id+')">✎</button>';
         html += '<button class="delete-btn" onclick="deletePee('+pe.id+')">✕</button>';
-        html += '</div>';
+        html += '</div></div>';
       }
     });
   }
