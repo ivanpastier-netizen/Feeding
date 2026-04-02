@@ -40,7 +40,7 @@ button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font
 .stepper{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
 .stepper button{width:64px;height:64px;border-radius:50%;font-size:28px;background:var(--card);color:var(--text);border:2px solid var(--border)}
 .stepper button:active{background:var(--border)}
-input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
+input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"],input[type="time"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;max-width:100%;min-width:0;font-family:inherit;-webkit-appearance:none}
 .progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
 .progress-fill{height:100%;border-radius:5px;transition:width .3s}
 .feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -141,8 +141,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <p id="baby-age" style="text-align:center;color:var(--muted);margin-bottom:12px"></p>
   <div id="home-warning"></div>
   <div id="home-suggestion" class="suggestion" onclick="openFeedPlan()" style="cursor:pointer"></div>
-  <div class="card">
-    <div class="card-title">Posledné kŕmenie</div>
+  <div class="card" onclick="showView('history')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div class="card-title">Posledné kŕmenie <span style="float:right;font-size:11px;opacity:0.5">história →</span></div>
     <div class="row between">
       <span id="last-feed-time">—</span>
       <span id="last-feed-amount" class="feed-amount">—</span>
@@ -150,8 +150,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <div id="last-feed-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
   </div>
-  <div class="card">
-    <div class="card-title">Posledných 24 hodín</div>
+  <div class="card" onclick="showView('trends')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div class="card-title">Posledných 24 hodín <span style="float:right;font-size:11px;opacity:0.5">trendy →</span></div>
     <div class="stats-grid">
       <div><div class="stat-val" id="stat-total">0</div><div class="stat-label">ml celkom</div></div>
       <div><div class="stat-val" id="stat-count">0</div><div class="stat-label">kŕmení</div></div>
@@ -160,7 +160,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <div class="progress-bar"><div class="progress-fill" id="daily-progress"></div></div>
     <div id="daily-progress-text" style="font-size:12px;color:var(--muted);text-align:center"></div>
   </div>
-  <div id="diaper-card" class="card">
+  <button class="btn-primary" onclick="openAddModal()" style="font-size:20px;padding:18px">🍼 Pridať kŕmenie</button>
+  <div id="diaper-card" class="card" style="margin-top:12px">
     <div class="card-title">Plienky (24h)</div>
     <div class="row between" style="margin-bottom:8px">
       <span id="diaper-total" style="font-size:20px;font-weight:700"></span>
@@ -174,7 +175,6 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button class="btn-primary" onclick="openPoopModal()" style="flex:1;background:var(--amber);padding:12px;font-size:15px">💩 Kakošák</button>
     </div>
   </div>
-  <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
 </div>
 
 <!-- HISTORY VIEW -->
