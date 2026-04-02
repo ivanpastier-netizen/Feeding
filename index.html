@@ -859,7 +859,10 @@ function renderHomeInner(){
   if(s.timeSince!==null){
     const mins = Math.round(s.timeSince/60000);
     const nextIn = Math.max(0, Math.round((s.intervalMs - s.timeSince)/60000));
-    if(nextIn>0) sugText += '<br><small>Ďalšie kŕmenie za ~'+nextIn+' min</small>';
+    if(nextIn>0){
+      var nh = Math.floor(nextIn/60), nm = nextIn%60;
+      sugText += '<br><small>Ďalšie kŕmenie za ~'+(nh>0?nh+'h ':'')+nm+' min</small>';
+    }
     else sugText += '<br><small>Čas na kŕmenie!</small>';
   }
   sugText += '<br><small style="opacity:0.5">tap → denný plán</small>';
