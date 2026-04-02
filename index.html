@@ -802,7 +802,8 @@ function renderHome(){
   var cutoff24h = Date.now() - 86400000;
   var pees24h = pees.filter(function(p){ return p.timestamp >= cutoff24h; });
   var poops24h = poops.filter(function(p){ return p.timestamp >= cutoff24h; });
-  var totalDiapers = pees24h.length;
+  var poopPees = pees24h.filter(function(p){ return p.fromPoop; }).length;
+  var totalDiapers = pees24h.length + Math.max(0, poops24h.length - poopPees);
   var diaperCard = document.getElementById('diaper-card');
   if(totalDiapers > 0 || poops24h.length > 0){
     diaperCard.style.display = 'block';
