@@ -1422,7 +1422,7 @@ function renderDiaperStats(){
 }
 
 // ===== ADD FEEDING =====
-let addType = 'formula';
+let addType = 'ar';
 let addAmount = 120;
 
 function requireSync(){
@@ -1434,7 +1434,7 @@ function openAddModal(){
   if(!requireSync()) return;
   const s = getSuggestion();
   addAmount = s.suggested;
-  addType = 'formula';
+  addType = 'ar';
   document.getElementById('add-amount').textContent = addAmount;
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
