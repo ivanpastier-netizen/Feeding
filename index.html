@@ -1680,9 +1680,10 @@ function savePoop(){
   if(!requireSync()) return;
   var timeVal = document.getElementById('poop-time').value;
   var ts = new Date(timeVal).getTime();
-  poops.push({id: Date.now(), timestamp: ts, color: addPoopColor, size: addPoopSize});
-  // Poop = diaper change too, auto-add pee record
-  pees.push({id: Date.now()+1, timestamp: ts, wetness: 'medium', fromPoop: true});
+  var poopId = Date.now();
+  poops.push({id: poopId, timestamp: ts, color: addPoopColor, size: addPoopSize});
+  // Poop = diaper change too, auto-add pee record linked by poopId
+  pees.push({id: poopId+1, timestamp: ts, wetness: 'medium', fromPoop: true, poopId: poopId});
   saveAll();
   closePoopModal();
   showView('home');
@@ -1691,8 +1692,7 @@ function savePoop(){
 
 function deletePoop(id){
   if(!requireSync()) return;
-  var p = poops.find(function(x){ return x.id === id; });
-  if(p) pees = pees.filter(function(pe){ return !(pe.fromPoop && pe.timestamp === p.timestamp); });
+  pees = pees.filter(function(pe){ return !(pe.fromPoop && (pe.poopId === id || pe.timestamp === (poops.find(function(x){return x.id===id})||{}).timestamp)); });
   poops = poops.filter(function(x){ return x.id !== id; });
   saveAll();
   renderHistory();
@@ -1739,9 +1739,13 @@ function saveEditPoop(){
   if(!requireSync()) return;
   var p = poops.find(function(x){ return x.id === editPoopId; });
   if(!p) return;
+  var oldTs = p.timestamp;
   p.color = editPoopColor;
   p.size = editPoopSize;
   p.timestamp = new Date(document.getElementById('edit-poop-time').value).getTime();
+  // Update linked pee timestamp too
+  var linkedPee = pees.find(function(pe){ return pe.fromPoop && (pe.poopId === editPoopId || pe.timestamp === oldTs); });
+  if(linkedPee){ linkedPee.timestamp = p.timestamp; linkedPee.poopId = editPoopId; }
   saveAll();
   closeEditPoopModal();
   renderHistory();
@@ -1749,8 +1753,7 @@ function saveEditPoop(){
 function deleteEditPoop(){
   if(!requireSync()) return;
   if(!confirm('Naozaj vymazať tento záznam?')) return;
-  var p = poops.find(function(x){ return x.id === editPoopId; });
-  if(p) pees = pees.filter(function(pe){ return !(pe.fromPoop && pe.timestamp === p.timestamp); });
+  pees = pees.filter(function(pe){ return !(pe.fromPoop && (pe.poopId === editPoopId || pe.timestamp === (poops.find(function(x){return x.id===editPoopId})||{}).timestamp)); });
   poops = poops.filter(function(x){ return x.id !== editPoopId; });
   saveAll();
   closeEditPoopModal();
