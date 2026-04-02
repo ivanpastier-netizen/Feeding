@@ -701,13 +701,12 @@ function renderWeightChart(){
 
   // Interpolate WHO percentile at a given timestamp
   function whoAt(ts, pIdx){
-    const ageM = (ts - birthDate.getTime()) / (30.44 * 86400000);
-    const lo = Math.max(0, Math.floor(ageM));
-    const hi = Math.min(WHO_WEIGHT_GIRLS.length - 1, lo + 1);
+    const ageM = Math.max(0, (ts - birthDate.getTime()) / (30.44 * 86400000));
+    const maxIdx = WHO_WEIGHT_GIRLS.length - 1;
+    if(ageM >= maxIdx) return WHO_WEIGHT_GIRLS[maxIdx][pIdx];
+    const lo = Math.floor(ageM);
     const frac = ageM - lo;
-    const wLo = WHO_WEIGHT_GIRLS[Math.min(lo, WHO_WEIGHT_GIRLS.length-1)];
-    const wHi = WHO_WEIGHT_GIRLS[hi];
-    return wLo[pIdx] + (wHi[pIdx] - wLo[pIdx]) * frac;
+    return WHO_WEIGHT_GIRLS[lo][pIdx] + (WHO_WEIGHT_GIRLS[lo+1][pIdx] - WHO_WEIGHT_GIRLS[lo][pIdx]) * frac;
   }
 
   // Draw P3-P97 shaded zone
