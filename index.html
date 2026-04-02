@@ -1920,6 +1920,7 @@ function init(){
   weights = LS.get('fp_weights', []);
   poops = LS.get('fp_poops', []);
   pees = LS.get('fp_pees', []);
+  if(profile && profile.bedtime) LS.set('fp_bedtime', profile.bedtime);
   initFirebase();
   if(!profile || !profile.setupDone) showView('setup');
   else showView('home');
@@ -1941,7 +1942,10 @@ window.addEventListener('online', function(){
 // ===== FEED PLAN =====
 function saveBedtime(){
   var val = document.getElementById('bedtime-input').value;
-  if(val) LS.set('fp_bedtime', val);
+  if(val){
+    LS.set('fp_bedtime', val);
+    if(profile){ profile.bedtime = val; saveAll(); }
+  }
   renderFeedPlan();
 }
 
