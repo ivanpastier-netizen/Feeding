@@ -780,15 +780,29 @@ function getSuggestion(){
   var nightReserve = futureNight * 150;
   var dayBudget = Math.max(0, dailyTarget - todayConsumed - nightReserve);
 
-  // Estimate remaining day feeds (based on time until bedtime)
+  // Count actual day feed slots (same logic as plan: exclude too-close-to-bedtime)
   var avgDayInterval = ageDays <= 60 ? 180 : 210;
-  var btMins = btH * 60;
+  var btMins = btH * 60 + btM;
   var nowMins = now.getHours() * 60 + now.getMinutes();
-  var dayFeedsLeft = isNightNow ? 0 : Math.max(1, Math.round((btMins - nowMins) / avgDayInterval));
+  var lastFeedForSug = feeds.length ? feeds.sort(function(a,b){return b.timestamp-a.timestamp;})[0] : null;
+  var lastMins = lastFeedForSug ? (function(){ var d=new Date(lastFeedForSug.timestamp); return d.getHours()*60+d.getMinutes(); })() : nowMins;
+  var nextSlot = lastMins + avgDayInterval;
+  if(nextSlot <= nowMins) nextSlot = nowMins + 15;
+  var dayFeedsLeft = 0;
+  if(!isNightNow){
+    var scan = nextSlot;
+    while(scan < btMins - 30){
+      dayFeedsLeft++;
+      scan += avgDayInterval;
+    }
+    dayFeedsLeft = Math.max(dayFeedsLeft, nowMins < btMins - 60 ? 1 : 0);
+  }
 
   var suggested;
   if(isNightNow){
     suggested = 150; // Night: AR 150ml
+  } else if(dayFeedsLeft === 0){
+    suggested = 150; // Close to bedtime: AR
   } else {
     suggested = dayFeedsLeft > 0 ? Math.round(dayBudget / dayFeedsLeft / 30) * 30 : g.min;
     suggested = Math.max(90, Math.min(suggested, g.max));
