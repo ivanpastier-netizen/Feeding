@@ -89,7 +89,12 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .poop-sizes button{flex:1}
 .poop-sizes button.active{border-color:var(--amber);color:var(--amber)}
 .badge.poop{background:var(--amber);color:#000}
+.badge.pee{background:#4fc3f7;color:#000}
 .poop-dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px}
+.wetness-bar{display:inline-flex;gap:2px;vertical-align:middle;margin-left:4px}
+.wetness-drop{width:8px;height:12px;border-radius:0 50% 50% 50%;transform:rotate(45deg);background:var(--border)}
+.wetness-drop.active{background:#4fc3f7}
+.pee-sizes button.active{border-color:#4fc3f7;color:#4fc3f7}
 </style>
 </head>
 <body>
@@ -145,7 +150,15 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <div id="last-poop-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
   </div>
+  <div id="diaper-card" class="card" style="display:none">
+    <div class="card-title">Plienky (24h)</div>
+    <div class="row between">
+      <span id="diaper-total" style="font-size:20px;font-weight:700"></span>
+      <span id="diaper-detail" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+  </div>
   <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
+  <button class="btn-primary" onclick="openPeeModal()" style="margin-top:8px;background:#4fc3f7;color:#000">💧 Čikošák</button>
   <button class="btn-primary" onclick="openPoopModal()" style="margin-top:8px;background:var(--amber)">💩 Kakošák</button>
 </div>
 
@@ -167,6 +180,10 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
     <div id="weight-list" style="margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
+  </div>
+  <div class="card">
+    <div class="card-title">🧷 Plienky (7 dní)</div>
+    <div id="diaper-stats"></div>
   </div>
   <div class="card">
     <div class="card-title">💩 Kakošák (7 dní)</div>
@@ -295,6 +312,52 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   </div>
 </div>
 
+<!-- PEE MODAL -->
+<div id="pee-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💧 Čikošák</h2>
+      <button class="close-btn" onclick="closePeeModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Koľko bola počikaná?</label>
+      <div class="poop-sizes pee-sizes">
+        <button class="btn-small" onclick="selectPeeWetness('light')">Málo</button>
+        <button class="btn-small active" onclick="selectPeeWetness('medium')">Stredne</button>
+        <button class="btn-small" onclick="selectPeeWetness('heavy')">Veľa</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="pee-time">
+    </div>
+    <button class="btn-primary" onclick="savePee()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- EDIT PEE MODAL -->
+<div id="edit-pee-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💧 Upraviť</h2>
+      <button class="close-btn" onclick="closeEditPeeModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Koľko bola počikaná?</label>
+      <div class="poop-sizes pee-sizes" id="edit-pee-sizes">
+        <button class="btn-small" onclick="selectEditPeeWetness('light')">Málo</button>
+        <button class="btn-small active" onclick="selectEditPeeWetness('medium')">Stredne</button>
+        <button class="btn-small" onclick="selectEditPeeWetness('heavy')">Veľa</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="edit-pee-time">
+    </div>
+    <button class="btn-primary" onclick="saveEditPee()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
 <!-- POOP MODAL -->
 <div id="poop-modal" class="modal">
   <div class="modal-content">
@@ -398,12 +461,14 @@ let profile = LS.get('fp_profile', null);
 let feeds = LS.get('fp_feeds', []);
 let weights = LS.get('fp_weights', []);
 let poops = LS.get('fp_poops', []);
+let pees = LS.get('fp_pees', []);
 
 function saveAll(){
   LS.set('fp_profile', profile);
   LS.set('fp_feeds', feeds);
   LS.set('fp_weights', weights);
   LS.set('fp_poops', poops);
+  LS.set('fp_pees', pees);
   pushToFirebase();
 }
 
@@ -469,11 +534,14 @@ function connectSync(code){
         else weights = [];
         if(data.poops) poops = data.poops;
         else poops = [];
+        if(data.pees) pees = data.pees;
+        else pees = [];
 
         LS.set('fp_profile', profile);
         LS.set('fp_feeds', feeds);
         LS.set('fp_weights', weights);
         LS.set('fp_poops', poops);
+        LS.set('fp_pees', pees);
         LS.set('fp_last_modified', data.lastModified);
 
         // Re-render current view
@@ -511,6 +579,7 @@ function pushToFirebase(){
     feeds: feeds,
     weights: weights,
     poops: poops,
+    pees: pees,
     lastModified: now
   }).catch(function(e){ console.warn('Firebase push failed:', e); });
 }
@@ -729,6 +798,24 @@ function renderHome(){
   bar.style.background = pct>=100?'var(--red)':pct>=85?'var(--amber)':'var(--green)';
   document.getElementById('daily-progress-text').textContent = pct+'% z '+s.dailyTarget+' ml';
 
+  // Diaper summary (24h)
+  var cutoff24h = Date.now() - 86400000;
+  var pees24h = pees.filter(function(p){ return p.timestamp >= cutoff24h; });
+  var poops24h = poops.filter(function(p){ return p.timestamp >= cutoff24h; });
+  var totalDiapers = pees24h.length;
+  var diaperCard = document.getElementById('diaper-card');
+  if(totalDiapers > 0 || poops24h.length > 0){
+    diaperCard.style.display = 'block';
+    document.getElementById('diaper-total').textContent = totalDiapers + ' plienok';
+    var parts = [];
+    var peeOnly = pees24h.filter(function(p){ return !p.fromPoop; }).length;
+    if(peeOnly) parts.push('💧 '+peeOnly+'× čiky');
+    if(poops24h.length) parts.push('💩 '+poops24h.length+'× kaky');
+    document.getElementById('diaper-detail').textContent = parts.join(' | ');
+  } else {
+    diaperCard.style.display = 'none';
+  }
+
   // Last poop
   var sortedPoops = [...poops].sort(function(a,b){ return b.timestamp - a.timestamp; });
   var lastPoop = sortedPoops[0];
@@ -752,10 +839,11 @@ function renderHome(){
 
 // ===== HISTORY =====
 function renderHistory(){
-  // Merge feeds and poops into a single timeline
+  // Merge feeds, poops, and pees into a single timeline
   var allItems = [];
   feeds.forEach(function(f){ allItems.push({type:'feed', data:f, ts:f.timestamp}); });
   poops.forEach(function(p){ allItems.push({type:'poop', data:p, ts:p.timestamp}); });
+  pees.forEach(function(p){ if(!p.fromPoop) allItems.push({type:'pee', data:p, ts:p.timestamp}); });
   allItems.sort(function(a,b){ return b.ts - a.ts; });
 
   var byDay = {};
@@ -770,10 +858,12 @@ function renderHistory(){
     var items = byDay[day];
     var dayFeeds = items.filter(function(i){ return i.type==='feed'; });
     var dayPoops = items.filter(function(i){ return i.type==='poop'; });
+    var dayPees = items.filter(function(i){ return i.type==='pee'; });
     var dayTotal = dayFeeds.reduce(function(s,i){ return s+i.data.amount; },0);
     var headerParts = [];
     if(dayFeeds.length) headerParts.push(dayTotal+' ml ('+dayFeeds.length+'×)');
-    if(dayPoops.length) headerParts.push('💩 '+dayPoops.length+'×');
+    var diaperCount = dayPees.length + dayPoops.length;
+    if(diaperCount) headerParts.push('🧷 '+diaperCount);
     html += '<div class="day-header">'+day+' — '+headerParts.join(' | ')+'</div>';
     items.forEach(function(item){
       var d = new Date(item.ts);
@@ -786,7 +876,7 @@ function renderHistory(){
         html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
         html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
         html += '</div>';
-      } else {
+      } else if(item.type === 'poop'){
         var p = item.data;
         html += '<div class="feed-item">';
         html += '<span class="feed-time">'+fmt(d)+'</span>';
@@ -795,6 +885,15 @@ function renderHistory(){
         html += '<span class="feed-amount">'+(POOP_SIZE_LABELS[p.size]||p.size)+'</span>';
         html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPoopModal('+p.id+')">✎</button>';
         html += '<button class="delete-btn" onclick="deletePoop('+p.id+')">✕</button>';
+        html += '</div>';
+      } else {
+        var pe = item.data;
+        html += '<div class="feed-item">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge pee">💧</span>';
+        html += '<span class="feed-amount">'+(PEE_LABELS[pe.wetness]||pe.wetness)+wetnessDrops(pe.wetness)+'</span>';
+        html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditPeeModal('+pe.id+')">✎</button>';
+        html += '<button class="delete-btn" onclick="deletePee('+pe.id+')">✕</button>';
         html += '</div>';
       }
     });
@@ -1151,6 +1250,7 @@ function renderWeightChart(){
   });
 
   renderPoopStats();
+  renderDiaperStats();
 }
 
 // Poop stats (7 days)
@@ -1193,6 +1293,34 @@ function renderPoopStats(){
     html += '</div>';
   }
   document.getElementById('poop-stats').innerHTML = html;
+}
+
+function renderDiaperStats(){
+  var now = new Date();
+  var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">';
+  var totalWeek = 0;
+  for(var i=6;i>=0;i--){
+    var d = new Date(now);
+    d.setDate(d.getDate()-i);
+    var start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var end = start + 86400000;
+    var dayPees = pees.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    var dayPoops = poops.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    totalWeek += dayPees.length;
+    var label = d.getDate()+'.'+(d.getMonth()+1);
+    var peeOnly = dayPees.filter(function(p){ return !p.fromPoop; }).length;
+    html += '<div style="text-align:center;min-width:36px">';
+    html += '<div style="font-size:11px;color:var(--muted)">'+label+'</div>';
+    html += '<div style="font-size:20px;font-weight:700">'+dayPees.length+'</div>';
+    html += '<div style="font-size:10px;color:var(--muted)">';
+    if(peeOnly) html += '💧'+peeOnly;
+    if(dayPoops.length) html += '💩'+dayPoops.length;
+    html += '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<div style="text-align:center;font-size:14px;color:var(--muted)">Celkom za 7 dní: <b style="color:var(--text)">'+totalWeek+' plienok</b></div>';
+  document.getElementById('diaper-stats').innerHTML = html;
 }
 
 // ===== ADD FEEDING =====
@@ -1340,6 +1468,95 @@ function saveWeight(){
   renderTrends();
 }
 
+// ===== PEE TRACKER (ČIKOŠÁK) =====
+const PEE_LABELS = {light:'Málo', medium:'Stredne', heavy:'Veľa'};
+let addPeeWetness = 'medium';
+let editPeeId = null;
+let editPeeWetness = 'medium';
+
+function wetnessDrops(level){
+  var n = level==='light'?1:level==='medium'?2:3;
+  var html = '<span class="wetness-bar">';
+  for(var i=0;i<3;i++) html += '<span class="wetness-drop'+(i<n?' active':'')+'"></span>';
+  return html+'</span>';
+}
+
+function openPeeModal(){
+  if(!requireSync()) return;
+  addPeeWetness = 'medium';
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('pee-time').value = now.toISOString().slice(0,16);
+  var btns = document.querySelectorAll('#pee-modal .pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';}); btns[1].className='btn-small active';
+  document.getElementById('pee-modal').classList.add('active');
+}
+function closePeeModal(){document.getElementById('pee-modal').classList.remove('active')}
+
+function selectPeeWetness(w){
+  addPeeWetness = w;
+  var btns = document.querySelectorAll('#pee-modal .pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(w==='light') btns[0].className='btn-small active';
+  else if(w==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+}
+
+function savePee(){
+  if(!requireSync()) return;
+  var timeVal = document.getElementById('pee-time').value;
+  var ts = new Date(timeVal).getTime();
+  pees.push({id: Date.now(), timestamp: ts, wetness: addPeeWetness});
+  saveAll();
+  closePeeModal();
+  showView('home');
+}
+
+function deletePee(id){
+  if(!requireSync()) return;
+  pees = pees.filter(function(p){ return p.id !== id; });
+  saveAll();
+  renderHistory();
+}
+
+function openEditPeeModal(id){
+  if(!requireSync()) return;
+  var p = pees.find(function(x){ return x.id === id; });
+  if(!p) return;
+  editPeeId = id;
+  editPeeWetness = p.wetness;
+  var d = new Date(p.timestamp);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('edit-pee-time').value = d.toISOString().slice(0,16);
+  var btns = document.querySelectorAll('#edit-pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(editPeeWetness==='light') btns[0].className='btn-small active';
+  else if(editPeeWetness==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+  document.getElementById('edit-pee-modal').classList.add('active');
+}
+function closeEditPeeModal(){document.getElementById('edit-pee-modal').classList.remove('active')}
+
+function selectEditPeeWetness(w){
+  editPeeWetness = w;
+  var btns = document.querySelectorAll('#edit-pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(w==='light') btns[0].className='btn-small active';
+  else if(w==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+}
+
+function saveEditPee(){
+  if(!requireSync()) return;
+  var p = pees.find(function(x){ return x.id === editPeeId; });
+  if(!p) return;
+  p.wetness = editPeeWetness;
+  p.timestamp = new Date(document.getElementById('edit-pee-time').value).getTime();
+  saveAll();
+  closeEditPeeModal();
+  renderHistory();
+}
+
 // ===== POOP TRACKER (KAKOŠÁK) =====
 const POOP_SIZE_LABELS = {small:'Malé', medium:'Stredné', large:'Veľké'};
 const POOP_SIZE_EMOJI = {small:'💩', medium:'💩💩', large:'💩💩💩'};
@@ -1388,6 +1605,8 @@ function savePoop(){
   var timeVal = document.getElementById('poop-time').value;
   var ts = new Date(timeVal).getTime();
   poops.push({id: Date.now(), timestamp: ts, color: addPoopColor, size: addPoopSize});
+  // Poop = diaper change too, auto-add pee record
+  pees.push({id: Date.now()+1, timestamp: ts, wetness: 'medium', fromPoop: true});
   saveAll();
   closePoopModal();
   showView('home');
@@ -1481,7 +1700,7 @@ function saveSettings(){
 }
 
 function exportData(){
-  const data = JSON.stringify({profile, feeds, weights, poops}, null, 2);
+  const data = JSON.stringify({profile, feeds, weights, poops, pees}, null, 2);
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(data).then(()=>alert('Dáta skopírované do schránky!')).catch(()=>fallbackCopy(data));
   } else {
@@ -1514,6 +1733,7 @@ function importData(){
     if(data.feeds) feeds = data.feeds;
     if(data.weights) weights = data.weights;
     if(data.poops) poops = data.poops;
+    if(data.pees) pees = data.pees;
     saveAll();
     alert('Dáta importované!');
     document.getElementById('import-area').style.display = 'none';
@@ -1538,6 +1758,7 @@ function resetData(){
   localStorage.removeItem('fp_feeds');
   localStorage.removeItem('fp_weights');
   localStorage.removeItem('fp_poops');
+  localStorage.removeItem('fp_pees');
   localStorage.removeItem('fp_preloaded');
   localStorage.removeItem('fp_sync_code');
   localStorage.removeItem('fp_last_modified');
@@ -1545,6 +1766,7 @@ function resetData(){
   feeds = [];
   weights = [];
   poops = [];
+  pees = [];
   showView('setup');
 }
 
@@ -1610,6 +1832,7 @@ function init(){
   feeds = LS.get('fp_feeds', []);
   weights = LS.get('fp_weights', []);
   poops = LS.get('fp_poops', []);
+  pees = LS.get('fp_pees', []);
   initFirebase();
   if(!profile || !profile.setupDone) showView('setup');
   else showView('home');
