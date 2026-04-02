@@ -66,6 +66,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .weight-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
 .type-toggle{display:flex;gap:8px;margin:12px 0}
 .type-toggle button{flex:1;padding:14px;font-size:15px}
+.rec-table{width:100%;border-collapse:collapse;font-size:12px}
+.rec-table th{text-align:left;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:11px}
+.rec-table td{padding:6px 4px;border-bottom:1px solid var(--border)}
+.rec-table tr.current{background:rgba(248,164,184,0.15);border-radius:8px}
+.rec-table tr.future{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -134,6 +139,10 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
     <div id="weight-list" style="margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Odporúčania podľa veku</div>
+    <div id="recs-table"></div>
   </div>
 </div>
 
@@ -271,12 +280,47 @@ function saveAll(){
 }
 
 // ===== FEEDING GUIDELINES =====
+// WHO Girls weight-for-age (kg): [month, P3, P15, P50, P85, P97]
+const WHO_WEIGHT_GIRLS = [
+  [0, 2.4, 2.8, 3.2, 3.7, 4.2],
+  [1, 3.2, 3.6, 4.2, 4.8, 5.5],
+  [2, 3.9, 4.5, 5.1, 5.8, 6.6],
+  [3, 4.5, 5.2, 5.8, 6.6, 7.5],
+  [4, 5.0, 5.7, 6.4, 7.3, 8.2],
+  [5, 5.4, 6.1, 6.9, 7.8, 8.8],
+  [6, 5.7, 6.5, 7.3, 8.2, 9.3],
+  [7, 6.0, 6.8, 7.6, 8.6, 9.8],
+  [8, 6.3, 7.0, 7.9, 9.0, 10.2],
+  [9, 6.5, 7.3, 8.2, 9.3, 10.5],
+  [10, 6.7, 7.5, 8.5, 9.6, 10.9],
+  [11, 6.9, 7.7, 8.7, 9.9, 11.2],
+  [12, 7.0, 7.9, 8.9, 10.1, 11.5]
+];
+
+// Feeding recommendations by month
+const FEED_RECS = [
+  {month:0, ml:'60-90',   feeds:'8-12', daily:'480-720',  note:'Malé časté dávky'},
+  {month:1, ml:'90-120',  feeds:'6-8',  daily:'540-840',  note:'Postupne zvyšovať'},
+  {month:2, ml:'120-150', feeds:'5-7',  daily:'600-900',  note:'Stabilný režim'},
+  {month:3, ml:'120-180', feeds:'5-7',  daily:'720-900',  note:'Väčšie dávky, menej často'},
+  {month:4, ml:'150-180', feeds:'5-6',  daily:'750-960',  note:'Možný začiatok príkrmov'},
+  {month:5, ml:'150-210', feeds:'4-6',  daily:'750-960',  note:'Príkrmy + mlieko'},
+  {month:6, ml:'150-210', feeds:'4-5',  daily:'720-900',  note:'Príkrmy nahrádzajú dávky'},
+  {month:7, ml:'150-210', feeds:'3-5',  daily:'600-900',  note:'Viac príkrmov'},
+  {month:8, ml:'150-210', feeds:'3-4',  daily:'600-840',  note:'3 jedlá + mlieko'},
+  {month:9, ml:'150-210', feeds:'3-4',  daily:'500-720',  note:'Hlavné jedlá + mlieko'}
+];
+
 function getGuidelines(ageDays){
   if(ageDays<=30) return {min:60,max:120,feedsMin:6,feedsMax:10,dailyMax:720};
   if(ageDays<=60) return {min:90,max:150,feedsMin:6,feedsMax:8,dailyMax:840};
   if(ageDays<=120) return {min:120,max:180,feedsMin:5,feedsMax:7,dailyMax:900};
   if(ageDays<=180) return {min:150,max:210,feedsMin:4,feedsMax:6,dailyMax:960};
   return {min:150,max:240,feedsMin:4,feedsMax:6,dailyMax:960};
+}
+
+function getAgeMonths(){
+  return Math.floor(getAgeDays() / 30.44);
 }
 
 function getAgeDays(){
@@ -584,6 +628,36 @@ function renderTrends(){
     whtml += '<div class="weight-item"><span>'+new Date(w.timestamp).toLocaleDateString('sk-SK')+'</span><span><b>'+w.kg+' kg</b> <button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditWeight('+w.id+')">✎</button> <button class="delete-btn" onclick="deleteWeight('+w.id+')">✕</button></span></div>';
   });
   document.getElementById('weight-list').innerHTML = whtml || '<p style="color:var(--muted);font-size:14px">Žiadne záznamy váhy</p>';
+
+  // Recommendations table
+  renderRecsTable();
+}
+
+function renderRecsTable(){
+  const curMonth = getAgeMonths();
+  let html = '<table class="rec-table">';
+  html += '<tr><th>Mesiac</th><th>Váha (kg)</th><th>ml/dávka</th><th>Dávky/deň</th><th>ml/deň</th><th></th></tr>';
+
+  // Show from current month to +5 months
+  const startM = Math.max(0, curMonth);
+  const endM = Math.min(startM + 6, FEED_RECS.length);
+
+  for(let m = startM; m < endM; m++){
+    const r = FEED_RECS[m];
+    const w = WHO_WEIGHT_GIRLS[m] || WHO_WEIGHT_GIRLS[WHO_WEIGHT_GIRLS.length-1];
+    const isCurrent = m === curMonth;
+    const cls = isCurrent ? 'current' : 'future';
+    html += '<tr class="'+cls+'">';
+    html += '<td><b>'+m+' m</b>'+(isCurrent?' ←':'')+'</td>';
+    html += '<td>'+w[2].toFixed(1)+'<br><small style="color:var(--muted)">'+w[1].toFixed(1)+'–'+w[4].toFixed(1)+'</small></td>';
+    html += '<td>'+r.ml+'</td>';
+    html += '<td>'+r.feeds+'</td>';
+    html += '<td>'+r.daily+'</td>';
+    html += '<td style="font-size:11px;color:var(--muted)">'+r.note+'</td>';
+    html += '</tr>';
+  }
+  html += '</table>';
+  document.getElementById('recs-table').innerHTML = html;
 }
 
 function renderWeightChart(){
@@ -621,59 +695,70 @@ function renderWeightChart(){
   const tsRange = maxTs - minTs || 86400000;
   const xScale = ts => padL + ((ts - minTs) / tsRange * cW);
 
-  // WHO growth zone (approximate for girls: 3-7kg in first 6 months)
-  const ageDays = getAgeDays();
-  // Simplified percentile bands based on WHO girls weight-for-age
-  // 3rd percentile and 97th percentile at birth+ageDays
-  const birthKg = sorted[0].kg;
-  const whoP3 = birthKg + (ageDays * 0.018);  // ~18g/day low end
-  const whoP50 = birthKg + (ageDays * 0.028); // ~28g/day median
-  const whoP97 = birthKg + (ageDays * 0.038); // ~38g/day high end
+  // WHO growth zone using actual WHO data
+  if(!profile) return;
+  const birthDate = new Date(profile.birthDate);
 
-  // Draw growth zone if data spans enough time
-  if(sorted.length > 1){
-    const p3Start = yScale(Math.max(whoP3 - (tsRange/86400000)*0.018, minW));
-    const p97Start = yScale(Math.min(whoP97 - (tsRange/86400000)*0.038 + sorted[0].kg - birthKg + (sorted[0].timestamp-minTs)/86400000*0.038, maxW));
-
-    // Simplified: shade zone between estimated P3 and P97 lines
-    ctx.fillStyle = 'rgba(102, 187, 106, 0.1)';
-    ctx.beginPath();
-    sorted.forEach((w, i) => {
-      const x = xScale(w.timestamp);
-      const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
-      const lo = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.018);
-      const hi = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.038);
-      if(i === 0) ctx.moveTo(x, yScale(Math.max(lo, minW)));
-      else ctx.lineTo(x, yScale(Math.max(lo, minW)));
-    });
-    for(let i = sorted.length - 1; i >= 0; i--){
-      const w = sorted[i];
-      const x = xScale(w.timestamp);
-      const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
-      const hi = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * 0.038);
-      ctx.lineTo(x, yScale(Math.min(hi, maxW)));
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // P3/P97 dashed lines
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = 'rgba(102, 187, 106, 0.3)';
-    ctx.lineWidth = 1;
-    [0.018, 0.038].forEach(rate => {
-      ctx.beginPath();
-      sorted.forEach((w, i) => {
-        const x = xScale(w.timestamp);
-        const daysSinceBirth = (w.timestamp - sorted[0].timestamp) / 86400000;
-        const v = birthKg + ((ageDays - (tsRange/86400000) + daysSinceBirth) * rate);
-        const y = yScale(Math.max(minW, Math.min(maxW, v)));
-        if(i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    });
-    ctx.setLineDash([]);
+  // Interpolate WHO percentile at a given timestamp
+  function whoAt(ts, pIdx){
+    const ageM = (ts - birthDate.getTime()) / (30.44 * 86400000);
+    const lo = Math.max(0, Math.floor(ageM));
+    const hi = Math.min(WHO_WEIGHT_GIRLS.length - 1, lo + 1);
+    const frac = ageM - lo;
+    const wLo = WHO_WEIGHT_GIRLS[Math.min(lo, WHO_WEIGHT_GIRLS.length-1)];
+    const wHi = WHO_WEIGHT_GIRLS[hi];
+    return wLo[pIdx] + (wHi[pIdx] - wLo[pIdx]) * frac;
   }
+
+  // Draw P3-P97 shaded zone
+  const steps = 20;
+  ctx.fillStyle = 'rgba(102, 187, 106, 0.12)';
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const ts = minTs + (tsRange * i / steps);
+    const x = xScale(ts);
+    const v = whoAt(ts, 1); // P3
+    if(i===0) ctx.moveTo(x, yScale(Math.max(v, minW)));
+    else ctx.lineTo(x, yScale(Math.max(v, minW)));
+  }
+  for(let i=steps;i>=0;i--){
+    const ts = minTs + (tsRange * i / steps);
+    const x = xScale(ts);
+    const v = whoAt(ts, 5); // P97
+    ctx.lineTo(x, yScale(Math.min(v, maxW)));
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // P50 line (median)
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(102, 187, 106, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const ts = minTs + (tsRange * i / steps);
+    const x = xScale(ts);
+    const v = whoAt(ts, 3); // P50
+    if(i===0) ctx.moveTo(x, yScale(v));
+    else ctx.lineTo(x, yScale(v));
+  }
+  ctx.stroke();
+
+  // P3 and P97 dashed lines
+  ctx.strokeStyle = 'rgba(102, 187, 106, 0.25)';
+  ctx.lineWidth = 1;
+  [1, 5].forEach(pIdx => {
+    ctx.beginPath();
+    for(let i=0;i<=steps;i++){
+      const ts = minTs + (tsRange * i / steps);
+      const x = xScale(ts);
+      const v = whoAt(ts, pIdx);
+      if(i===0) ctx.moveTo(x, yScale(Math.max(minW, Math.min(maxW, v))));
+      else ctx.lineTo(x, yScale(Math.max(minW, Math.min(maxW, v))));
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
 
   // Y-axis grid lines + labels
   ctx.fillStyle = '#8899aa';
