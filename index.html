@@ -342,13 +342,16 @@ function renderHome(){
   // Last feed
   if(s.lastFeed){
     const d = new Date(s.lastFeed.timestamp);
-    document.getElementById('last-feed-time').textContent = fmt(d);
+    document.getElementById('last-feed-time').textContent = d.toLocaleDateString('sk-SK')+' '+fmt(d);
     document.getElementById('last-feed-amount').textContent = s.lastFeed.amount+' ml';
     document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'Mlieko')+'</span>';
     const mins = Math.round(s.timeSince/60000);
-    const h = Math.floor(mins/60);
-    const m = mins%60;
-    document.getElementById('last-feed-ago').textContent = 'pred '+(h>0?h+'h ':'')+m+' min';
+    if(mins < 60) document.getElementById('last-feed-ago').textContent = 'pred '+mins+' min';
+    else {
+      const h = Math.floor(mins/60);
+      const m = mins%60;
+      document.getElementById('last-feed-ago').textContent = 'pred '+h+'h '+m+' min';
+    }
   }
 
   // Stats
@@ -726,7 +729,13 @@ function preloadData(){
     ['2026-04-01 13:40',150,'formula'],['2026-04-01 17:00',90,'formula'],['2026-04-01 19:10',150,'formula']
   ];
 
-  feeds = raw.map((r,i)=>({id:i+1, timestamp:new Date(r[0]).getTime(), amount:r[1], type:r[2]}));
+  feeds = raw.map((r,i)=>{
+    const [date,time] = r[0].split(' ');
+    const [y,mo,d] = date.split('-').map(Number);
+    const [h,mi] = time.split(':').map(Number);
+    const ts = new Date(y, mo-1, d, h, mi).getTime();
+    return {id:i+1, timestamp:ts, amount:r[1], type:r[2]};
+  });
   weights = [
     {id:1, timestamp:new Date('2025-12-19').getTime(), kg:3.2},
     {id:2, timestamp:new Date('2026-01-15').getTime(), kg:4.0},
