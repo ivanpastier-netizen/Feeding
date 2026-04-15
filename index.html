@@ -14,6 +14,8 @@
 <meta property="og:title" content="Olivia - Kŕmenie">
 <meta property="og:description" content="Sledovanie kŕmenia bábätka">
 <title>Olivia - Kŕmenie</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#1a1a2e;--card:#16213e;--border:#2a3a5e;--text:#e0e0e0;--muted:#8899aa;--green:#66bb6a;--blue:#4fc3f7;--purple:#ce93d8;--amber:#ffa726;--red:#ef5350;--pink:#f8a4b8}
@@ -28,23 +30,26 @@ h2{font-size:18px;margin-bottom:8px;color:var(--pink)}
 .row{display:flex;gap:8px;align-items:center}
 .row.between{justify-content:space-between}
 .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
-.badge.formula{background:var(--blue);color:#000}
+.badge.formula{background:#e0e0e0;color:#333}
 .badge.ar{background:var(--purple);color:#000}
 button{font-family:inherit;border:none;border-radius:12px;padding:14px 20px;font-size:16px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .btn-primary{background:var(--green);color:#000;width:100%;font-size:18px;padding:16px}
 .btn-small{padding:10px 16px;font-size:14px;background:var(--card);color:var(--text);border:1px solid var(--border)}
 .btn-small.active{border-color:var(--blue);color:var(--blue)}
 .btn-small.active-ar{border-color:var(--purple);color:var(--purple)}
-.stepper{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
-.stepper button{width:64px;height:64px;border-radius:50%;font-size:28px;background:var(--card);color:var(--text);border:2px solid var(--border)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0}
+.stepper button{width:56px;height:56px;border-radius:50%;font-size:20px;background:var(--card);color:var(--text);border:2px solid var(--border)}
+.stepper button.sm{width:44px;height:44px;font-size:16px;opacity:0.7}
 .stepper button:active{background:var(--border)}
-input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;font-family:inherit}
+input[type="datetime-local"],input[type="date"],input[type="number"],input[type="text"],input[type="time"]{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:16px;width:100%;max-width:100%;min-width:0;font-family:inherit;-webkit-appearance:none}
 .progress-bar{height:10px;background:var(--card);border-radius:5px;overflow:hidden;margin:8px 0}
 .progress-fill{height:100%;border-radius:5px;transition:width .3s}
-.feed-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.feed-item:active{opacity:0.6}
 .feed-item:last-child{border:none}
-.feed-time{font-size:14px;color:var(--muted);width:50px}
-.feed-amount{font-size:18px;font-weight:700}
+.feed-time{font-size:14px;color:var(--muted);min-width:42px}
+.feed-amount{font-size:16px;font-weight:700;flex:1}
+.feed-actions{display:flex;gap:4px;flex-shrink:0}
 .warning{background:#3e2723;border:1px solid var(--amber);color:var(--amber);border-radius:12px;padding:12px;margin-bottom:12px;font-size:14px}
 .warning.red{background:#3e1515;border-color:var(--red);color:var(--red)}
 .suggestion{background:#1b3a1b;border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:12px;text-align:center}
@@ -74,7 +79,41 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
 .rec-table th{text-align:left;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:11px}
 .rec-table td{padding:6px 4px;border-bottom:1px solid var(--border)}
 .rec-table tr.current{background:rgba(248,164,184,0.15);border-radius:8px}
+.rec-table tr.past{color:var(--muted);opacity:0.6}
 .rec-table tr.future{color:var(--muted)}
+.sync-status{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sync-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sync-dot.off{background:var(--muted)}
+.sync-code-display{font-family:monospace;font-size:24px;font-weight:700;letter-spacing:4px;text-align:center;padding:12px;background:var(--bg);border-radius:12px;margin-bottom:12px}
+.poop-colors{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.poop-color{width:44px;height:44px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:border-color .2s}
+.poop-color.selected{border-color:var(--text);box-shadow:0 0 8px rgba(255,255,255,0.3)}
+.poop-sizes{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.poop-sizes button{flex:1}
+.poop-sizes button.active{border-color:var(--amber);color:var(--amber)}
+.badge.poop{background:var(--amber);color:#000}
+.badge.pee{background:#4fc3f7;color:#000}
+.poop-dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px}
+.wetness-bar{display:inline-flex;gap:2px;vertical-align:middle;margin-left:4px}
+.wetness-drop{width:8px;height:12px;border-radius:0 50% 50% 50%;transform:rotate(45deg);background:var(--border)}
+.wetness-drop.active{background:#4fc3f7}
+.pee-sizes button.active{border-color:#4fc3f7;color:#4fc3f7}
+.plan-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.plan-item.done{opacity:0.4}
+.plan-item.next{background:rgba(102,187,106,0.1);border-radius:12px;border:1px solid var(--green)}
+.plan-item .plan-time{font-size:16px;font-weight:700;min-width:50px}
+.plan-item .plan-detail{flex:1;font-size:14px}
+.plan-item .plan-type{font-size:12px;color:var(--muted)}
+.plan-night{background:rgba(206,147,216,0.1);border-radius:8px}
+.poop-celebration{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);opacity:0;transition:opacity .3s;pointer-events:none}
+.poop-celebration.active{opacity:1;pointer-events:auto}
+.poop-celebration .poop-msg{font-size:22px;font-weight:700;color:var(--text);text-align:center;padding:0 24px;line-height:1.4;animation:poopBounce .6s ease}
+.poop-celebration .poop-emoji{font-size:80px;margin-bottom:16px;animation:poopSpin .8s ease}
+.poop-confetti{position:absolute;font-size:24px;animation:confettiFall 2s ease-out forwards}
+@keyframes poopBounce{0%{transform:scale(0);opacity:0}50%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+@keyframes poopSpin{0%{transform:rotate(-30deg) scale(0)}50%{transform:rotate(15deg) scale(1.3)}100%{transform:rotate(0) scale(1)}}
+@keyframes confettiFall{0%{transform:translateY(-100px) rotate(0);opacity:1}100%{transform:translateY(60vh) rotate(720deg);opacity:0}}
 </style>
 </head>
 <body>
@@ -102,9 +141,9 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <h1 id="baby-header">🍼 Olivia</h1>
   <p id="baby-age" style="text-align:center;color:var(--muted);margin-bottom:12px"></p>
   <div id="home-warning"></div>
-  <div id="home-suggestion" class="suggestion"></div>
-  <div class="card">
-    <div class="card-title">Posledné kŕmenie</div>
+  <div id="home-suggestion" class="suggestion" onclick="openFeedPlan()" style="cursor:pointer"></div>
+  <div class="card" onclick="showView('history')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div class="card-title">Posledné kŕmenie <span style="float:right;font-size:11px;opacity:0.5">história →</span></div>
     <div class="row between">
       <span id="last-feed-time">—</span>
       <span id="last-feed-amount" class="feed-amount">—</span>
@@ -112,8 +151,8 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     </div>
     <div id="last-feed-ago" style="color:var(--muted);font-size:13px;margin-top:4px"></div>
   </div>
-  <div class="card">
-    <div class="card-title">Posledných 24 hodín</div>
+  <div class="card" onclick="showView('trends')" style="cursor:pointer;-webkit-tap-highlight-color:transparent">
+    <div class="card-title">Posledných 24 hodín <span style="float:right;font-size:11px;opacity:0.5">trendy →</span></div>
     <div class="stats-grid">
       <div><div class="stat-val" id="stat-total">0</div><div class="stat-label">ml celkom</div></div>
       <div><div class="stat-val" id="stat-count">0</div><div class="stat-label">kŕmení</div></div>
@@ -122,7 +161,21 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <div class="progress-bar"><div class="progress-fill" id="daily-progress"></div></div>
     <div id="daily-progress-text" style="font-size:12px;color:var(--muted);text-align:center"></div>
   </div>
-  <button class="btn-primary" onclick="openAddModal()">+ Pridať kŕmenie</button>
+  <button class="btn-primary" onclick="openAddModal()" style="font-size:20px;padding:18px">🍼 Pridať kŕmenie</button>
+  <div id="diaper-card" class="card" style="margin-top:12px">
+    <div class="card-title">Plienky (24h)</div>
+    <div class="row between" style="margin-bottom:8px">
+      <span id="diaper-total" style="font-size:20px;font-weight:700"></span>
+      <span id="diaper-detail" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div id="last-poop-info-row" style="display:none;font-size:13px;color:var(--muted);margin-bottom:10px">
+      Posledné 💩: <span id="last-poop-ago2"></span> — <span id="last-poop-info2"></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" onclick="openPeeModal()" style="flex:1;background:#4fc3f7;color:#000;padding:12px;font-size:15px">💧 Cikošák</button>
+      <button class="btn-primary" onclick="openPoopModal()" style="flex:1;background:var(--amber);padding:12px;font-size:15px">💩 Kakošák</button>
+    </div>
+  </div>
 </div>
 
 <!-- HISTORY VIEW -->
@@ -141,8 +194,17 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
   <div class="card">
     <div class="card-title">Váha</div>
     <canvas id="weight-canvas" width="600" height="240" style="width:100%;height:180px"></canvas>
-    <div id="weight-list" style="margin-top:8px"></div>
+    <button class="btn-small" onclick="toggleWeightList()" style="margin-top:8px;width:100%;color:var(--muted)" id="weight-toggle-btn">Zobraziť záznamy</button>
+    <div id="weight-list" style="display:none;margin-top:8px"></div>
     <button class="btn-small" onclick="openWeightModal()" style="margin-top:8px;width:100%">+ Pridať váhu</button>
+  </div>
+  <div class="card">
+    <div class="card-title">🧷 Plienky (7 dní)</div>
+    <div id="diaper-stats"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">💩 Kakošák (7 dní)</div>
+    <div id="poop-stats"></div>
   </div>
   <div class="card">
     <div class="card-title">Odporúčania podľa veku</div>
@@ -162,18 +224,37 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
     <button class="btn-primary" onclick="saveSettings()" style="margin-top:12px">Uložiť profil</button>
   </div>
   <div class="card">
-    <div class="card-title">Záloha dát</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">iOS môže vymazať dáta PWA po 7 dňoch nepoužívania. Odporúčame pravidelne zálohovať.</p>
-    <button class="btn-small" onclick="exportData()" style="width:100%;margin-bottom:8px">📋 Kopírovať dáta do schránky</button>
-    <button class="btn-small" onclick="showImport()" style="width:100%;margin-bottom:8px">📥 Importovať dáta</button>
-    <div id="import-area" style="display:none;margin-top:8px">
-      <textarea id="import-input" rows="4" style="width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-family:inherit" placeholder="Vložte JSON dáta sem..."></textarea>
-      <button class="btn-primary" onclick="importData()" style="margin-top:8px">Importovať</button>
+    <div class="card-title">Cloud Sync</div>
+    <div class="sync-status">
+      <div class="sync-dot off" id="sync-dot"></div>
+      <span id="sync-status-text" style="font-size:14px;color:var(--muted)">Odpojené</span>
+    </div>
+    <div id="sync-connected" style="display:none">
+      <div class="sync-code-display" id="sync-code-display"></div>
+      <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="disconnectSync()">Odpojiť sync</button>
+    </div>
+    <div id="sync-disconnected">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Synchronizujte dáta medzi zariadeniami. Vygenerujte kód na jednom zariadení a zadajte ho na druhom.</p>
+      <button class="btn-small" onclick="generateAndConnect()" style="width:100%;margin-bottom:8px">Vygenerovať nový kód</button>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="text" id="sync-code-input" maxlength="6" placeholder="Zadať kód" style="flex:1;text-transform:uppercase;font-family:monospace;font-size:18px;letter-spacing:2px;text-align:center">
+        <button class="btn-primary" onclick="connectWithCode()" style="width:auto;padding:14px 20px">Pripojiť</button>
+      </div>
     </div>
   </div>
   <div class="card">
-    <div class="card-title">Vymazať dáta</div>
-    <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 Vymazať všetky dáta</button>
+    <div class="card-title">Záloha dát</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">iOS môže vymazať dáta PWA po 7 dňoch nepoužívania. Odporúčame pravidelne zálohovať.</p>
+    <button class="btn-small" onclick="exportData()" style="width:100%;margin-bottom:8px">💾 Stiahnuť zálohu</button>
+    <label class="btn-small" style="display:block;width:100%;text-align:center;margin-bottom:8px;cursor:pointer">📂 Nahrať zálohu
+      <input type="file" accept=".json" onchange="importFile(event)" style="display:none">
+    </label>
+  </div>
+  <div class="card" style="margin-top:24px">
+    <button class="btn-small" style="width:100%;color:var(--muted);border-color:var(--border)" onclick="toggleDangerZone()">Nebezpečná zóna</button>
+    <div id="danger-zone" style="display:none;margin-top:12px">
+      <button class="btn-small" style="width:100%;color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 Vymazať všetky dáta</button>
+    </div>
   </div>
 </div>
 
@@ -189,9 +270,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button id="type-ar" class="btn-small" onclick="setType('ar')">AR mlieko</button>
     </div>
     <div class="stepper">
-      <button onclick="adjustAmount(-30)">−</button>
+      <button onclick="adjustAmount(-30)">−30</button>
+      <button class="sm" onclick="adjustAmount(-10)">−10</button>
       <div class="big-num" id="add-amount">120</div>
-      <button onclick="adjustAmount(30)">+</button>
+      <button class="sm" onclick="adjustAmount(10)">+10</button>
+      <button onclick="adjustAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
     <div class="card">
@@ -218,6 +301,7 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="date" id="weight-date">
     </div>
     <button class="btn-primary" onclick="saveWeight()" style="margin-top:12px">Uložiť</button>
+    <button id="delete-weight-btn" class="btn-small" style="display:none;width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditWeight()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -233,9 +317,11 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <button id="edit-type-ar" class="btn-small" onclick="setEditType('ar')">AR mlieko</button>
     </div>
     <div class="stepper">
-      <button onclick="adjustEditAmount(-30)">−</button>
+      <button onclick="adjustEditAmount(-30)">−30</button>
+      <button class="sm" onclick="adjustEditAmount(-10)">−10</button>
       <div class="big-num" id="edit-amount">120</div>
-      <button onclick="adjustEditAmount(30)">+</button>
+      <button class="sm" onclick="adjustEditAmount(10)">+10</button>
+      <button onclick="adjustEditAmount(30)">+30</button>
     </div>
     <div style="text-align:center;color:var(--muted);margin-bottom:12px;font-size:13px">ml</div>
     <div class="card">
@@ -243,6 +329,145 @@ input[type="datetime-local"],input[type="date"],input[type="number"],input[type=
       <input type="datetime-local" id="edit-time">
     </div>
     <button class="btn-primary" onclick="saveEditFeed()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditFeed()">Vymazať záznam</button>
+  </div>
+</div>
+
+<!-- FEED PLAN MODAL -->
+<div id="feed-plan-modal" class="modal">
+  <div class="modal-content" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-header">
+      <h2>📋 Denný plán</h2>
+      <button class="close-btn" onclick="closeFeedPlan()">✕</button>
+    </div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:13px;color:var(--muted)">🛏️ Spánok o</span>
+        <input type="time" id="bedtime-input" style="flex:1;font-size:16px" onchange="saveBedtime()">
+      </div>
+    </div>
+    <div id="feed-plan-summary" class="card" style="margin-bottom:8px"></div>
+    <div id="feed-plan-list"></div>
+  </div>
+</div>
+
+<!-- PEE MODAL -->
+<div id="pee-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💧 Cikošák</h2>
+      <button class="close-btn" onclick="closePeeModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Koľko bola počikaná?</label>
+      <div class="poop-sizes pee-sizes">
+        <button class="btn-small" onclick="selectPeeWetness('light')">Málo</button>
+        <button class="btn-small active" onclick="selectPeeWetness('medium')">Stredne</button>
+        <button class="btn-small" onclick="selectPeeWetness('heavy')">Veľa</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="pee-time">
+    </div>
+    <button class="btn-primary" onclick="savePee()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- EDIT PEE MODAL -->
+<div id="edit-pee-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💧 Upraviť</h2>
+      <button class="close-btn" onclick="closeEditPeeModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Koľko bola počikaná?</label>
+      <div class="poop-sizes pee-sizes" id="edit-pee-sizes">
+        <button class="btn-small" onclick="selectEditPeeWetness('light')">Málo</button>
+        <button class="btn-small active" onclick="selectEditPeeWetness('medium')">Stredne</button>
+        <button class="btn-small" onclick="selectEditPeeWetness('heavy')">Veľa</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="edit-pee-time">
+    </div>
+    <button class="btn-primary" onclick="saveEditPee()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditPee()">Vymazať záznam</button>
+  </div>
+</div>
+
+<!-- POOP MODAL -->
+<div id="poop-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💩 Kakošák</h2>
+      <button class="close-btn" onclick="closePoopModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Farba</label>
+      <div class="poop-colors" id="poop-color-picker">
+        <div class="poop-color selected" style="background:#F4D03F" data-color="#F4D03F" onclick="selectPoopColor(this)" title="Žltá"></div>
+        <div class="poop-color" style="background:#D4AC0D" data-color="#D4AC0D" onclick="selectPoopColor(this)" title="Horčicová"></div>
+        <div class="poop-color" style="background:#BA8C3B" data-color="#BA8C3B" onclick="selectPoopColor(this)" title="Svetlohnedá"></div>
+        <div class="poop-color" style="background:#8B6914" data-color="#8B6914" onclick="selectPoopColor(this)" title="Hnedá"></div>
+        <div class="poop-color" style="background:#5D4037" data-color="#5D4037" onclick="selectPoopColor(this)" title="Tmavohnedá"></div>
+        <div class="poop-color" style="background:#5B7D2E" data-color="#5B7D2E" onclick="selectPoopColor(this)" title="Zelená"></div>
+        <div class="poop-color" style="background:#E67E22" data-color="#E67E22" onclick="selectPoopColor(this)" title="Oranžová"></div>
+        <div class="poop-color" style="background:#F5F5DC;border:1px solid var(--muted)" data-color="#F5F5DC" onclick="selectPoopColor(this)" title="Bledá"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Veľkosť</label>
+      <div class="poop-sizes">
+        <button class="btn-small" onclick="selectPoopSize('small')">Malé</button>
+        <button class="btn-small active" onclick="selectPoopSize('medium')">Stredné</button>
+        <button class="btn-small" onclick="selectPoopSize('large')">Veľké</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="poop-time">
+    </div>
+    <button class="btn-primary" onclick="savePoop()" style="margin-top:12px">Uložiť</button>
+  </div>
+</div>
+
+<!-- EDIT POOP MODAL -->
+<div id="edit-poop-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>💩 Upraviť</h2>
+      <button class="close-btn" onclick="closeEditPoopModal()">✕</button>
+    </div>
+    <div class="card">
+      <label class="card-title">Farba</label>
+      <div class="poop-colors" id="edit-poop-color-picker">
+        <div class="poop-color selected" style="background:#F4D03F" data-color="#F4D03F" onclick="selectEditPoopColor(this)" title="Žltá"></div>
+        <div class="poop-color" style="background:#D4AC0D" data-color="#D4AC0D" onclick="selectEditPoopColor(this)" title="Horčicová"></div>
+        <div class="poop-color" style="background:#BA8C3B" data-color="#BA8C3B" onclick="selectEditPoopColor(this)" title="Svetlohnedá"></div>
+        <div class="poop-color" style="background:#8B6914" data-color="#8B6914" onclick="selectEditPoopColor(this)" title="Hnedá"></div>
+        <div class="poop-color" style="background:#5D4037" data-color="#5D4037" onclick="selectEditPoopColor(this)" title="Tmavohnedá"></div>
+        <div class="poop-color" style="background:#5B7D2E" data-color="#5B7D2E" onclick="selectEditPoopColor(this)" title="Zelená"></div>
+        <div class="poop-color" style="background:#E67E22" data-color="#E67E22" onclick="selectEditPoopColor(this)" title="Oranžová"></div>
+        <div class="poop-color" style="background:#F5F5DC;border:1px solid var(--muted)" data-color="#F5F5DC" onclick="selectEditPoopColor(this)" title="Bledá"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Veľkosť</label>
+      <div class="poop-sizes" id="edit-poop-sizes">
+        <button class="btn-small" onclick="selectEditPoopSize('small')">Malé</button>
+        <button class="btn-small active" onclick="selectEditPoopSize('medium')">Stredné</button>
+        <button class="btn-small" onclick="selectEditPoopSize('large')">Veľké</button>
+      </div>
+    </div>
+    <div class="card">
+      <label class="card-title">Čas</label>
+      <input type="datetime-local" id="edit-poop-time">
+    </div>
+    <button class="btn-primary" onclick="saveEditPoop()" style="margin-top:12px">Uložiť</button>
+    <button class="btn-small" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red)" onclick="deleteEditPoop()">Vymazať záznam</button>
   </div>
 </div>
 
@@ -276,11 +501,178 @@ const LS = {
 let profile = LS.get('fp_profile', null);
 let feeds = LS.get('fp_feeds', []);
 let weights = LS.get('fp_weights', []);
+let poops = LS.get('fp_poops', []);
+let pees = LS.get('fp_pees', []);
 
 function saveAll(){
   LS.set('fp_profile', profile);
   LS.set('fp_feeds', feeds);
   LS.set('fp_weights', weights);
+  LS.set('fp_poops', poops);
+  LS.set('fp_pees', pees);
+  pushToFirebase();
+}
+
+// ===== FIREBASE SYNC =====
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBcobHDOoOACqN3-OrHJdgZfn5Bu-XvU0k",
+  authDomain: "feeder-bf87c.firebaseapp.com",
+  databaseURL: "https://feeder-bf87c-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "feeder-bf87c",
+  storageBucket: "feeder-bf87c.firebasestorage.app",
+  messagingSenderId: "813390097242",
+  appId: "1:813390097242:web:e2ccf3295a03ee805ce163"
+};
+
+let fbApp = null;
+let fbDb = null;
+let syncRef = null;
+let syncListener = null;
+let isSyncing = false;
+let syncCode = LS.get('fp_sync_code', null);
+
+function initFirebase(){
+  try {
+    if(typeof firebase === 'undefined') return;
+    fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.database();
+    if(syncCode) connectSync(syncCode);
+  } catch(e){ console.warn('Firebase init failed:', e); }
+}
+
+function connectSync(code){
+  code = code.toUpperCase().trim();
+  if(code.length < 4) return;
+  syncCode = code;
+  LS.set('fp_sync_code', syncCode);
+  if(!fbDb) return;
+
+  // Detach previous listener
+  if(syncRef && syncListener) syncRef.off('value', syncListener);
+
+  syncRef = fbDb.ref('sync/' + syncCode);
+
+  // Do NOT push first — listen and let remote data arrive
+  syncListener = syncRef.on('value', function(snapshot){
+    var data = snapshot.val();
+    if(isSyncing) return;
+    isSyncing = true;
+    try {
+      if(!data){
+        // No remote data yet — first device, push local data
+        isSyncing = false;
+        pushToFirebase();
+        renderSyncUI();
+        return;
+      }
+      var localMod = LS.get('fp_last_modified', 0);
+      // Only accept remote data if it's newer than local
+      if(data.lastModified && data.lastModified > localMod){
+        if(data.profile) profile = data.profile;
+        if(data.feeds) feeds = data.feeds;
+        else feeds = [];
+        if(data.weights) weights = data.weights;
+        else weights = [];
+        if(data.poops) poops = data.poops;
+        else poops = [];
+        if(data.pees) pees = data.pees;
+        else pees = [];
+
+        LS.set('fp_profile', profile);
+        LS.set('fp_feeds', feeds);
+        LS.set('fp_weights', weights);
+        LS.set('fp_poops', poops);
+        LS.set('fp_pees', pees);
+        LS.set('fp_last_modified', data.lastModified);
+
+        // Re-render current view
+        var activeView = document.querySelector('.view.active');
+        if(activeView){
+          var id = activeView.id;
+          if(id === 'home') renderHome();
+          else if(id === 'history') renderHistory();
+          else if(id === 'trends') renderTrends();
+          else if(id === 'settings') renderSettings();
+        }
+      }
+    } catch(e){ console.warn('Sync merge error:', e); }
+    isSyncing = false;
+  });
+
+  renderSyncUI();
+}
+
+function disconnectSync(){
+  if(syncRef && syncListener) syncRef.off('value', syncListener);
+  syncRef = null;
+  syncListener = null;
+  syncCode = null;
+  LS.set('fp_sync_code', null);
+  renderSyncUI();
+}
+
+function pushToFirebase(){
+  if(!syncRef || isSyncing) return;
+  var now = Date.now();
+  LS.set('fp_last_modified', now);
+  syncRef.set({
+    profile: profile,
+    feeds: feeds,
+    weights: weights,
+    poops: poops,
+    pees: pees,
+    lastModified: now
+  }).catch(function(e){ console.warn('Firebase push failed:', e); });
+}
+
+function generateSyncCode(){
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for(var i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+function generateAndConnect(){
+  var code = generateSyncCode();
+  connectSync(code);
+}
+
+function connectWithCode(){
+  var input = document.getElementById('sync-code-input');
+  var code = (input.value || '').toUpperCase().trim();
+  if(code.length < 4){ alert('Kód musí mať aspoň 4 znaky.'); return; }
+  connectSync(code);
+  input.value = '';
+}
+
+function renderSyncUI(){
+  var dot = document.getElementById('sync-dot');
+  var text = document.getElementById('sync-status-text');
+  var connDiv = document.getElementById('sync-connected');
+  var discDiv = document.getElementById('sync-disconnected');
+  var codeDisp = document.getElementById('sync-code-display');
+
+  if(syncCode && syncRef){
+    dot.className = 'sync-dot on';
+    text.textContent = 'Pripojené';
+    text.style.color = 'var(--green)';
+    connDiv.style.display = 'block';
+    discDiv.style.display = 'none';
+    codeDisp.textContent = syncCode;
+  } else if(syncCode && !syncRef){
+    dot.className = 'sync-dot off';
+    text.textContent = 'Pripájanie...';
+    text.style.color = 'var(--amber)';
+    connDiv.style.display = 'block';
+    discDiv.style.display = 'none';
+    codeDisp.textContent = syncCode;
+  } else {
+    dot.className = 'sync-dot off';
+    text.textContent = 'Odpojené';
+    text.style.color = 'var(--muted)';
+    connDiv.style.display = 'none';
+    discDiv.style.display = 'block';
+  }
 }
 
 // ===== FEEDING GUIDELINES =====
@@ -362,22 +754,85 @@ function getSuggestion(){
   let dailyTarget = g.dailyMax;
   if(w) dailyTarget = Math.min(Math.round(w*150), g.dailyMax);
 
+  // Bedtime config
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  var btParts = bedtime.split(':');
+  var btH = parseInt(btParts[0]), btM = parseInt(btParts[1] || 0);
+  var btMins = btH * 60 + btM;
+  var nightEnd = 6;
+  var now = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var isNightNow = nowMins >= btMins || nowMins < nightEnd * 60;
+
+  // Night reserve from recent patterns (same logic as renderFeedPlan)
+  var weekAgo = Date.now() - 7 * 86400000;
+  var recentFeeds = feeds.filter(function(f){ return f.timestamp >= weekAgo; });
+  var nightFeedCounts = [];
+  for(var d = 0; d < 7; d++){
+    var ds = new Date(now); ds.setDate(ds.getDate()-d); ds.setHours(btH, btM, 0, 0);
+    var de = new Date(ds); de.setDate(de.getDate()+1); de.setHours(nightEnd, 0, 0, 0);
+    var nc = recentFeeds.filter(function(f){ return f.timestamp>=ds.getTime()&&f.timestamp<de.getTime(); }).length;
+    if(d > 0 || nowMins > nightEnd * 60) nightFeedCounts.push(nc);
+  }
+  var avgNightFeeds = nightFeedCounts.length > 0
+    ? Math.round(nightFeedCounts.reduce(function(a,b){return a+b;},0) / nightFeedCounts.length) : 2;
+  avgNightFeeds = Math.max(1, Math.min(avgNightFeeds, 3));
+
+  // Today's budget
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; });
+  var todayConsumed = todayFeeds.reduce(function(s,f){ return s+f.amount; }, 0);
+  var doneNight = todayFeeds.filter(function(f){ var fm=new Date(f.timestamp); var fMins=fm.getHours()*60+fm.getMinutes(); return fMins>=btMins||fMins<nightEnd*60; }).length;
+  var futureNight = Math.max(0, (avgNightFeeds+1) - doneNight);
+  var nightReserve = futureNight * 150;
+  var dayBudget = Math.max(0, dailyTarget - todayConsumed - nightReserve);
+
+  // Count actual day feed slots (same as plan: from last feed + interval, exclude near bedtime)
+  var avgDayInterval = ageDays <= 60 ? 180 : 210;
+  var sortedFeeds = feeds.length ? [...feeds].sort(function(a,b){return b.timestamp-a.timestamp;}) : [];
+  var lastFeedObj = sortedFeeds[0] || null;
+  var lastMins = nowMins;
+  if(lastFeedObj){
+    var lfd = new Date(lastFeedObj.timestamp);
+    if(lfd.toDateString() === now.toDateString())
+      lastMins = lfd.getHours() * 60 + lfd.getMinutes();
+    else
+      lastMins = lfd.getHours() * 60 + lfd.getMinutes() - 1440;
+  }
+  var nextSlot = lastMins + avgDayInterval;
+  if(nextSlot <= nowMins) nextSlot = nowMins + 15;
+
+  var dayFeedsLeft = 0;
+  if(!isNightNow){
+    var scan = nextSlot;
+    while(scan < btMins - 30){
+      dayFeedsLeft++;
+      scan += avgDayInterval;
+    }
+    dayFeedsLeft = Math.max(dayFeedsLeft, nowMins < btMins - 60 ? 1 : 0);
+  }
+
+  var suggested;
+  if(isNightNow){
+    suggested = 150;
+  } else if(dayFeedsLeft === 0){
+    suggested = 150;
+  } else {
+    suggested = Math.round(dayBudget / dayFeedsLeft / 30) * 30;
+    suggested = Math.max(60, Math.min(suggested, g.max));
+  }
+
   const remaining = Math.max(0, dailyTarget - stats.total);
-  const feedsLeft = Math.max(1, Math.round(g.feedsMin - stats.count));
-  let suggested = Math.round(remaining / feedsLeft / 30) * 30;
-  suggested = Math.max(g.min, Math.min(suggested, g.max));
-  suggested = Math.max(30, suggested);
 
   let warning = null;
   if(stats.total >= g.dailyMax) warning = {level:'red', text:'⚠️ Denný limit dosiahnutý! ('+stats.total+'/'+g.dailyMax+' ml)'};
   else if(stats.total >= dailyTarget*0.9) warning = {level:'amber', text:'⚡ Blíži sa denný limit ('+stats.total+'/'+dailyTarget+' ml)'};
   if(w && stats.total > w*180) warning = {level:'red', text:'⚠️ Prekročený limit na váhu! (max '+Math.round(w*180)+' ml/deň)'};
 
-  const lastFeed = feeds.length ? feeds.sort((a,b)=>b.timestamp-a.timestamp)[0] : null;
-  const timeSince = lastFeed ? Date.now() - lastFeed.timestamp : null;
+  const timeSince = lastFeedObj ? Date.now() - lastFeedObj.timestamp : null;
   const intervalH = ageDays<=60 ? 3 : 3.5;
 
-  return {suggested, dailyTarget, warning, lastFeed, timeSince, intervalMs: intervalH*3600000, g};
+  return {suggested, dailyTarget, warning, lastFeed: lastFeedObj, timeSince, intervalMs: intervalH*3600000, g};
 }
 
 // ===== VIEWS =====
@@ -395,6 +850,9 @@ function showView(id){
 
 // ===== HOME =====
 function renderHome(){
+  try { renderHomeInner(); } catch(e){ console.warn('renderHome error:', e); }
+}
+function renderHomeInner(){
   const ageDays = getAgeDays();
   const weeks = Math.floor(ageDays/7);
   const days = ageDays%7;
@@ -410,9 +868,13 @@ function renderHome(){
   if(s.timeSince!==null){
     const mins = Math.round(s.timeSince/60000);
     const nextIn = Math.max(0, Math.round((s.intervalMs - s.timeSince)/60000));
-    if(nextIn>0) sugText += '<br><small>Ďalšie kŕmenie za ~'+nextIn+' min</small>';
+    if(nextIn>0){
+      var nh = Math.floor(nextIn/60), nm = nextIn%60;
+      sugText += '<br><small>Ďalšie kŕmenie za ~'+(nh>0?nh+'h ':'')+nm+' min</small>';
+    }
     else sugText += '<br><small>Čas na kŕmenie!</small>';
   }
+  sugText += '<br><small style="opacity:0.5">tap → denný plán</small>';
   sugEl.innerHTML = sugText;
 
   // Warning
@@ -426,7 +888,7 @@ function renderHome(){
     const d = new Date(s.lastFeed.timestamp);
     document.getElementById('last-feed-time').textContent = d.toLocaleDateString('sk-SK')+' '+fmt(d);
     document.getElementById('last-feed-amount').textContent = s.lastFeed.amount+' ml';
-    document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'Mlieko')+'</span>';
+    document.getElementById('last-feed-type').innerHTML = '<span class="badge '+(s.lastFeed.type==='ar'?'ar':'formula')+'">'+(s.lastFeed.type==='ar'?'AR':'🍼 Mlieko')+'</span>';
     const mins = Math.round(s.timeSince/60000);
     if(mins < 60) document.getElementById('last-feed-ago').textContent = 'pred '+mins+' min';
     else {
@@ -446,31 +908,92 @@ function renderHome(){
   bar.style.width = pct+'%';
   bar.style.background = pct>=100?'var(--red)':pct>=85?'var(--amber)':'var(--green)';
   document.getElementById('daily-progress-text').textContent = pct+'% z '+s.dailyTarget+' ml';
+
+  // Diaper + poop summary (24h)
+  var cutoff24h = Date.now() - 86400000;
+  var pees24h = pees.filter(function(p){ return p.timestamp >= cutoff24h; });
+  var poops24h = poops.filter(function(p){ return p.timestamp >= cutoff24h; });
+  var poopPees = pees24h.filter(function(p){ return p.fromPoop; }).length;
+  var totalDiapers = pees24h.length + Math.max(0, poops24h.length - poopPees);
+  document.getElementById('diaper-total').textContent = totalDiapers + ' plienok';
+  var parts = [];
+  var peeOnly = pees24h.filter(function(p){ return !p.fromPoop; }).length;
+  if(peeOnly) parts.push('💧 '+peeOnly+'× ciky');
+  if(poops24h.length) parts.push('💩 '+poops24h.length+'× kaky');
+  document.getElementById('diaper-detail').textContent = parts.join(' | ');
+
+  // Last poop inline
+  var sortedPoops = [...poops].sort(function(a,b){ return b.timestamp - a.timestamp; });
+  var lastPoop = sortedPoops[0];
+  var poopRow = document.getElementById('last-poop-info-row');
+  if(lastPoop){
+    poopRow.style.display = 'block';
+    document.getElementById('last-poop-info2').innerHTML = '<span class="poop-dot" style="background:'+lastPoop.color+'"></span> '+(POOP_SIZE_LABELS[lastPoop.size]||lastPoop.size);
+    var pmins = Math.round((Date.now() - lastPoop.timestamp)/60000);
+    if(pmins < 60) document.getElementById('last-poop-ago2').textContent = 'pred '+pmins+' min';
+    else {
+      var ph = Math.floor(pmins/60);
+      var pm = pmins%60;
+      document.getElementById('last-poop-ago2').textContent = 'pred '+ph+'h '+pm+' min';
+    }
+  } else {
+    poopRow.style.display = 'none';
+  }
 }
 
 // ===== HISTORY =====
 function renderHistory(){
-  const sorted = [...feeds].sort((a,b)=>b.timestamp-a.timestamp);
-  const byDay = {};
-  sorted.forEach(f=>{
-    const dk = new Date(f.timestamp).toLocaleDateString('sk-SK');
+  // Merge feeds, poops, and pees into a single timeline
+  var allItems = [];
+  feeds.forEach(function(f){ allItems.push({type:'feed', data:f, ts:f.timestamp}); });
+  poops.forEach(function(p){ allItems.push({type:'poop', data:p, ts:p.timestamp}); });
+  pees.forEach(function(p){ if(!p.fromPoop) allItems.push({type:'pee', data:p, ts:p.timestamp}); });
+  allItems.sort(function(a,b){ return b.ts - a.ts; });
+
+  var byDay = {};
+  allItems.forEach(function(item){
+    var dk = new Date(item.ts).toLocaleDateString('sk-SK');
     if(!byDay[dk]) byDay[dk] = [];
-    byDay[dk].push(f);
+    byDay[dk].push(item);
   });
 
-  let html = '';
-  for(const [day, items] of Object.entries(byDay)){
-    const dayTotal = items.reduce((s,f)=>s+f.amount,0);
-    html += '<div class="day-header">'+day+' — '+dayTotal+' ml ('+items.length+'×)</div>';
-    items.forEach(f=>{
-      const d = new Date(f.timestamp);
-      html += '<div class="feed-item">';
-      html += '<span class="feed-time">'+fmt(d)+'</span>';
-      html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'M')+'</span>';
-      html += '<span class="feed-amount">'+f.amount+' ml</span>';
-      html += '<button class="btn-small" style="padding:4px 8px;font-size:12px" onclick="openEditFeedModal('+f.id+')">✎</button>';
-      html += '<button class="delete-btn" onclick="deleteFeed('+f.id+')">✕</button>';
-      html += '</div>';
+  var html = '';
+  for(var day in byDay){
+    var items = byDay[day];
+    var dayFeeds = items.filter(function(i){ return i.type==='feed'; });
+    var dayPoops = items.filter(function(i){ return i.type==='poop'; });
+    var dayPees = items.filter(function(i){ return i.type==='pee'; });
+    var dayTotal = dayFeeds.reduce(function(s,i){ return s+i.data.amount; },0);
+    var headerParts = [];
+    if(dayFeeds.length) headerParts.push(dayTotal+' ml ('+dayFeeds.length+'×)');
+    var diaperCount = dayPees.length + dayPoops.length;
+    if(diaperCount) headerParts.push('🧷 '+diaperCount);
+    html += '<div class="day-header">'+day+' — '+headerParts.join(' | ')+'</div>';
+    items.forEach(function(item){
+      var d = new Date(item.ts);
+      if(item.type === 'feed'){
+        var f = item.data;
+        html += '<div class="feed-item" onclick="openEditFeedModal('+f.id+')">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge '+(f.type==='ar'?'ar':'formula')+'">'+(f.type==='ar'?'AR':'🍼')+'</span>';
+        html += '<span class="feed-amount">'+f.amount+' ml</span>';
+        html += '</div>';
+      } else if(item.type === 'poop'){
+        var p = item.data;
+        html += '<div class="feed-item" onclick="openEditPoopModal('+p.id+')">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge poop">💩</span>';
+        html += '<span class="poop-dot" style="background:'+p.color+'"></span>';
+        html += '<span class="feed-amount">'+(POOP_SIZE_LABELS[p.size]||p.size)+'</span>';
+        html += '</div>';
+      } else {
+        var pe = item.data;
+        html += '<div class="feed-item" onclick="openEditPeeModal('+pe.id+')">';
+        html += '<span class="feed-time">'+fmt(d)+'</span>';
+        html += '<span class="badge pee">💧</span>';
+        html += '<span class="feed-amount">'+(PEE_LABELS[pe.wetness]||pe.wetness)+wetnessDrops(pe.wetness)+'</span>';
+        html += '</div>';
+      }
     });
   }
   document.getElementById('history-list').innerHTML = html || '<p style="text-align:center;color:var(--muted)">Žiadne záznamy</p>';
@@ -642,15 +1165,15 @@ function renderRecsTable(){
   let html = '<table class="rec-table">';
   html += '<tr><th>Mesiac</th><th>Váha (kg)</th><th>ml/dávka</th><th>Dávky/deň</th><th>ml/deň</th><th></th></tr>';
 
-  // Show from current month to +5 months
-  const startM = Math.max(0, curMonth);
-  const endM = Math.min(startM + 6, FEED_RECS.length);
+  // Show from 2 months before current to +5 months ahead
+  const startM = Math.max(0, curMonth - 2);
+  const endM = Math.min(curMonth + 6, FEED_RECS.length);
 
   for(let m = startM; m < endM; m++){
     const r = FEED_RECS[m];
     const w = WHO_WEIGHT_GIRLS[m] || WHO_WEIGHT_GIRLS[WHO_WEIGHT_GIRLS.length-1];
     const isCurrent = m === curMonth;
-    const cls = isCurrent ? 'current' : 'future';
+    const cls = isCurrent ? 'current' : (m < curMonth ? 'past' : 'future');
     html += '<tr class="'+cls+'">';
     html += '<td><b>'+m+' m</b>'+(isCurrent?' ←':'')+'</td>';
     html += '<td>'+w[2].toFixed(1)+'<br><small style="color:var(--muted)">'+w[1].toFixed(1)+'–'+w[4].toFixed(1)+'</small></td>';
@@ -800,8 +1323,9 @@ function renderWeightChart(){
     ctx.stroke();
   }
 
-  // Draw dots + labels
-  sorted.forEach(w => {
+  // Draw dots + labels (avoid overlap)
+  var prevLabelX = -999, prevLabelY = -999, prevDateX = -999;
+  sorted.forEach((w, idx) => {
     const x = xScale(w.timestamp);
     const y = yScale(w.kg);
 
@@ -811,28 +1335,118 @@ function renderWeightChart(){
     ctx.fillStyle = '#f8a4b8';
     ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
 
-    // Value
+    // Value — shift up/down if too close to previous label
+    var labelY = y - 10;
+    if(Math.abs(x - prevLabelX) < 50 && Math.abs(labelY - prevLabelY) < 14){
+      labelY = prevLabelY < y ? y + 18 : y - 22;
+    }
     ctx.fillStyle = '#e0e0e0';
     ctx.font = '11px -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(w.kg + ' kg', x, y - 10);
+    ctx.fillText(w.kg + ' kg', x, labelY);
+    prevLabelX = x; prevLabelY = labelY;
 
-    // Date
-    ctx.fillStyle = '#8899aa';
-    ctx.font = '10px -apple-system, sans-serif';
-    const d = new Date(w.timestamp);
-    ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
+    // Date — skip if too close to previous date
+    var showDate = Math.abs(x - prevDateX) > 40;
+    if(showDate || idx === sorted.length - 1){
+      ctx.fillStyle = '#8899aa';
+      ctx.font = '10px -apple-system, sans-serif';
+      const d = new Date(w.timestamp);
+      ctx.fillText(d.getDate()+'.'+(d.getMonth()+1), x, H - padB + 14);
+      prevDateX = x;
+    }
   });
+
+  renderPoopStats();
+  renderDiaperStats();
+}
+
+// Poop stats (7 days)
+function renderPoopStats(){
+  var now = new Date();
+  var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">';
+  var totalWeek = 0;
+  for(var i=6;i>=0;i--){
+    var d = new Date(now);
+    d.setDate(d.getDate()-i);
+    var start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var end = start + 86400000;
+    var dayPoops = poops.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    totalWeek += dayPoops.length;
+    var label = d.getDate()+'.'+(d.getMonth()+1);
+    var count = dayPoops.length;
+    html += '<div style="text-align:center;min-width:36px">';
+    html += '<div style="font-size:11px;color:var(--muted)">'+label+'</div>';
+    html += '<div style="font-size:18px;font-weight:700">'+(count > 0 ? '💩'.repeat(Math.min(count,3)) + (count>3?' +':'') : '—')+'</div>';
+    html += '<div style="font-size:12px;color:var(--muted)">'+count+'</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<div style="text-align:center;font-size:14px;color:var(--muted)">Celkom za 7 dní: <b style="color:var(--text)">'+totalWeek+'</b></div>';
+
+  // Color distribution
+  var colorCounts = {};
+  var weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate()-6);
+  weekStart.setHours(0,0,0,0);
+  var weekPoops = poops.filter(function(p){ return p.timestamp >= weekStart.getTime(); });
+  weekPoops.forEach(function(p){
+    colorCounts[p.color] = (colorCounts[p.color]||0) + 1;
+  });
+  if(Object.keys(colorCounts).length > 0){
+    html += '<div style="display:flex;gap:6px;justify-content:center;margin-top:8px">';
+    for(var c in colorCounts){
+      html += '<div style="text-align:center"><span class="poop-dot" style="background:'+c+';width:20px;height:20px"></span><div style="font-size:11px;color:var(--muted)">'+colorCounts[c]+'×</div></div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('poop-stats').innerHTML = html;
+}
+
+function renderDiaperStats(){
+  var now = new Date();
+  var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">';
+  var totalWeek = 0;
+  for(var i=6;i>=0;i--){
+    var d = new Date(now);
+    d.setDate(d.getDate()-i);
+    var start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var end = start + 86400000;
+    var dayPees = pees.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    var dayPoops = poops.filter(function(p){ return p.timestamp>=start && p.timestamp<end; });
+    var poopPees = dayPees.filter(function(p){ return p.fromPoop; }).length;
+    var dayTotal = dayPees.length + Math.max(0, dayPoops.length - poopPees);
+    totalWeek += dayTotal;
+    var label = d.getDate()+'.'+(d.getMonth()+1);
+    var peeOnly = dayPees.filter(function(p){ return !p.fromPoop; }).length;
+    html += '<div style="text-align:center;min-width:36px">';
+    html += '<div style="font-size:11px;color:var(--muted)">'+label+'</div>';
+    html += '<div style="font-size:20px;font-weight:700">'+dayTotal+'</div>';
+    html += '<div style="font-size:10px;color:var(--muted)">';
+    if(peeOnly) html += '💧'+peeOnly;
+    if(dayPoops.length) html += '💩'+dayPoops.length;
+    html += '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<div style="text-align:center;font-size:14px;color:var(--muted)">Celkom za 7 dní: <b style="color:var(--text)">'+totalWeek+' plienok</b></div>';
+  document.getElementById('diaper-stats').innerHTML = html;
 }
 
 // ===== ADD FEEDING =====
-let addType = 'formula';
+let addType = 'ar';
 let addAmount = 120;
 
+function requireSync(){
+  if(!syncRef){ alert('Nie ste pripojený k sync. Pripojte sa v Nastaveniach.'); return false; }
+  return true;
+}
+
 function openAddModal(){
+  if(!requireSync()) return;
   const s = getSuggestion();
   addAmount = s.suggested;
-  addType = 'formula';
+  addType = 'ar';
   document.getElementById('add-amount').textContent = addAmount;
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -853,26 +1467,30 @@ function updateTypeButtons(){
 }
 
 function adjustAmount(delta){
-  addAmount = Math.max(30, Math.min(300, addAmount+delta));
+  addAmount = Math.max(10, Math.min(300, addAmount+delta));
   document.getElementById('add-amount').textContent = addAmount;
 }
 
 function saveFeed(){
+  if(!requireSync()) return;
   const timeVal = document.getElementById('add-time').value;
   const ts = new Date(timeVal).getTime();
   feeds.push({id: Date.now(), timestamp: ts, amount: addAmount, type: addType});
   saveAll();
   closeAddModal();
   showView('home');
+  showCelebration('🍼', FEED_MESSAGES, ['🍼','🥛','🧈']);
 }
 
 function deleteFeed(id){
+  if(!requireSync()) return;
   feeds = feeds.filter(f=>f.id!==id);
   saveAll();
   renderHistory();
 }
 
 function deleteWeight(id){
+  if(!requireSync()) return;
   weights = weights.filter(w=>w.id!==id);
   saveAll();
   renderTrends();
@@ -912,6 +1530,7 @@ function adjustEditAmount(delta){
   document.getElementById('edit-amount').textContent = editAmount;
 }
 function saveEditFeed(){
+  if(!requireSync()) return;
   const f = feeds.find(x=>x.id===editFeedId);
   if(!f) return;
   f.amount = editAmount;
@@ -921,15 +1540,37 @@ function saveEditFeed(){
   closeEditFeedModal();
   renderHistory();
 }
+function deleteEditFeed(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať toto kŕmenie?')) return;
+  feeds = feeds.filter(function(f){ return f.id !== editFeedId; });
+  saveAll();
+  closeEditFeedModal();
+  renderHistory();
+}
 
 // ===== WEIGHT =====
 let editWeightId = null;
 
+function toggleWeightList(){
+  var list = document.getElementById('weight-list');
+  var btn = document.getElementById('weight-toggle-btn');
+  if(list.style.display === 'none'){
+    list.style.display = 'block';
+    btn.textContent = 'Skryť záznamy';
+  } else {
+    list.style.display = 'none';
+    btn.textContent = 'Zobraziť záznamy';
+  }
+}
+
 function openWeightModal(){
+  if(!requireSync()) return;
   editWeightId = null;
   document.getElementById('weight-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('weight-input').value = '';
   document.getElementById('weight-modal').querySelector('h2').textContent = 'Pridať váhu';
+  document.getElementById('delete-weight-btn').style.display = 'none';
   document.getElementById('weight-modal').classList.add('active');
 }
 function openEditWeight(id){
@@ -939,11 +1580,13 @@ function openEditWeight(id){
   document.getElementById('weight-input').value = w.kg;
   document.getElementById('weight-date').value = new Date(w.timestamp).toISOString().slice(0,10);
   document.getElementById('weight-modal').querySelector('h2').textContent = 'Upraviť váhu';
+  document.getElementById('delete-weight-btn').style.display = 'block';
   document.getElementById('weight-modal').classList.add('active');
 }
 function closeWeightModal(){document.getElementById('weight-modal').classList.remove('active')}
 
 function saveWeight(){
+  if(!requireSync()) return;
   const kg = parseFloat(document.getElementById('weight-input').value);
   const date = document.getElementById('weight-date').value;
   if(!kg||!date) return;
@@ -956,6 +1599,239 @@ function saveWeight(){
   saveAll();
   closeWeightModal();
   renderTrends();
+}
+function deleteEditWeight(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam váhy?')) return;
+  weights = weights.filter(function(w){ return w.id !== editWeightId; });
+  saveAll();
+  closeWeightModal();
+  renderTrends();
+}
+
+// ===== PEE TRACKER (CIKOŠÁK) =====
+const PEE_LABELS = {light:'Málo', medium:'Stredne', heavy:'Veľa'};
+let addPeeWetness = 'medium';
+let editPeeId = null;
+let editPeeWetness = 'medium';
+
+function wetnessDrops(level){
+  var n = level==='light'?1:level==='medium'?2:3;
+  var html = '<span class="wetness-bar">';
+  for(var i=0;i<3;i++) html += '<span class="wetness-drop'+(i<n?' active':'')+'"></span>';
+  return html+'</span>';
+}
+
+function openPeeModal(){
+  if(!requireSync()) return;
+  addPeeWetness = 'medium';
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('pee-time').value = now.toISOString().slice(0,16);
+  var btns = document.querySelectorAll('#pee-modal .pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';}); btns[1].className='btn-small active';
+  document.getElementById('pee-modal').classList.add('active');
+}
+function closePeeModal(){document.getElementById('pee-modal').classList.remove('active')}
+
+function selectPeeWetness(w){
+  addPeeWetness = w;
+  var btns = document.querySelectorAll('#pee-modal .pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(w==='light') btns[0].className='btn-small active';
+  else if(w==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+}
+
+function savePee(){
+  if(!requireSync()) return;
+  var timeVal = document.getElementById('pee-time').value;
+  var ts = new Date(timeVal).getTime();
+  pees.push({id: Date.now(), timestamp: ts, wetness: addPeeWetness});
+  saveAll();
+  closePeeModal();
+  showView('home');
+  showCelebration('💧', PEE_MESSAGES, ['💧','🧷','🧼']);
+}
+
+function deletePee(id){
+  if(!requireSync()) return;
+  pees = pees.filter(function(p){ return p.id !== id; });
+  saveAll();
+  renderHistory();
+}
+
+function openEditPeeModal(id){
+  if(!requireSync()) return;
+  var p = pees.find(function(x){ return x.id === id; });
+  if(!p) return;
+  editPeeId = id;
+  editPeeWetness = p.wetness;
+  var d = new Date(p.timestamp);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('edit-pee-time').value = d.toISOString().slice(0,16);
+  var btns = document.querySelectorAll('#edit-pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(editPeeWetness==='light') btns[0].className='btn-small active';
+  else if(editPeeWetness==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+  document.getElementById('edit-pee-modal').classList.add('active');
+}
+function closeEditPeeModal(){document.getElementById('edit-pee-modal').classList.remove('active')}
+
+function selectEditPeeWetness(w){
+  editPeeWetness = w;
+  var btns = document.querySelectorAll('#edit-pee-sizes button');
+  btns.forEach(function(b){b.className='btn-small';});
+  if(w==='light') btns[0].className='btn-small active';
+  else if(w==='medium') btns[1].className='btn-small active';
+  else btns[2].className='btn-small active';
+}
+
+function saveEditPee(){
+  if(!requireSync()) return;
+  var p = pees.find(function(x){ return x.id === editPeeId; });
+  if(!p) return;
+  p.wetness = editPeeWetness;
+  p.timestamp = new Date(document.getElementById('edit-pee-time').value).getTime();
+  saveAll();
+  closeEditPeeModal();
+  renderHistory();
+}
+function deleteEditPee(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam?')) return;
+  pees = pees.filter(function(p){ return p.id !== editPeeId; });
+  saveAll();
+  closeEditPeeModal();
+  renderHistory();
+}
+
+// ===== POOP TRACKER (KAKOŠÁK) =====
+const POOP_SIZE_LABELS = {small:'Malé', medium:'Stredné', large:'Veľké'};
+const POOP_SIZE_EMOJI = {small:'💩', medium:'💩💩', large:'💩💩💩'};
+let addPoopColor = '#F4D03F';
+let addPoopSize = 'medium';
+let editPoopId = null;
+let editPoopColor = '#F4D03F';
+let editPoopSize = 'medium';
+
+function openPoopModal(){
+  if(!requireSync()) return;
+  addPoopColor = '#F4D03F';
+  addPoopSize = 'medium';
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('poop-time').value = now.toISOString().slice(0,16);
+  // Reset color selection
+  document.querySelectorAll('#poop-color-picker .poop-color').forEach(function(el){
+    el.classList.toggle('selected', el.dataset.color === addPoopColor);
+  });
+  // Reset size selection
+  document.querySelectorAll('#poop-modal .poop-sizes button').forEach(function(btn, i){
+    btn.className = 'btn-small' + (i === 1 ? ' active' : '');
+  });
+  document.getElementById('poop-modal').classList.add('active');
+}
+function closePoopModal(){document.getElementById('poop-modal').classList.remove('active')}
+
+function selectPoopColor(el){
+  addPoopColor = el.dataset.color;
+  document.querySelectorAll('#poop-color-picker .poop-color').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function selectPoopSize(size){
+  addPoopSize = size;
+  var btns = document.querySelectorAll('#poop-modal .poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(size === 'small') btns[0].className = 'btn-small active';
+  else if(size === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+}
+
+function savePoop(){
+  if(!requireSync()) return;
+  var timeVal = document.getElementById('poop-time').value;
+  var ts = new Date(timeVal).getTime();
+  var poopId = Date.now();
+  poops.push({id: poopId, timestamp: ts, color: addPoopColor, size: addPoopSize});
+  // Poop = diaper change too, auto-add pee record linked by poopId
+  pees.push({id: poopId+1, timestamp: ts, wetness: 'medium', fromPoop: true, poopId: poopId});
+  saveAll();
+  closePoopModal();
+  showView('home');
+  showCelebration('💩', POOP_MESSAGES, ['💩','🧻','🧷']);
+}
+
+function deletePoop(id){
+  if(!requireSync()) return;
+  pees = pees.filter(function(pe){ return !(pe.fromPoop && (pe.poopId === id || pe.timestamp === (poops.find(function(x){return x.id===id})||{}).timestamp)); });
+  poops = poops.filter(function(x){ return x.id !== id; });
+  saveAll();
+  renderHistory();
+}
+
+function openEditPoopModal(id){
+  if(!requireSync()) return;
+  var p = poops.find(function(x){ return x.id === id; });
+  if(!p) return;
+  editPoopId = id;
+  editPoopColor = p.color;
+  editPoopSize = p.size;
+  var d = new Date(p.timestamp);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('edit-poop-time').value = d.toISOString().slice(0,16);
+  document.querySelectorAll('#edit-poop-color-picker .poop-color').forEach(function(el){
+    el.classList.toggle('selected', el.dataset.color === editPoopColor);
+  });
+  var btns = document.querySelectorAll('#edit-poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(editPoopSize === 'small') btns[0].className = 'btn-small active';
+  else if(editPoopSize === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+  document.getElementById('edit-poop-modal').classList.add('active');
+}
+function closeEditPoopModal(){document.getElementById('edit-poop-modal').classList.remove('active')}
+
+function selectEditPoopColor(el){
+  editPoopColor = el.dataset.color;
+  document.querySelectorAll('#edit-poop-color-picker .poop-color').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function selectEditPoopSize(size){
+  editPoopSize = size;
+  var btns = document.querySelectorAll('#edit-poop-sizes button');
+  btns.forEach(function(b){ b.className = 'btn-small'; });
+  if(size === 'small') btns[0].className = 'btn-small active';
+  else if(size === 'medium') btns[1].className = 'btn-small active';
+  else btns[2].className = 'btn-small active';
+}
+
+function saveEditPoop(){
+  if(!requireSync()) return;
+  var p = poops.find(function(x){ return x.id === editPoopId; });
+  if(!p) return;
+  var oldTs = p.timestamp;
+  p.color = editPoopColor;
+  p.size = editPoopSize;
+  p.timestamp = new Date(document.getElementById('edit-poop-time').value).getTime();
+  // Update linked pee timestamp too
+  var linkedPee = pees.find(function(pe){ return pe.fromPoop && (pe.poopId === editPoopId || pe.timestamp === oldTs); });
+  if(linkedPee){ linkedPee.timestamp = p.timestamp; linkedPee.poopId = editPoopId; }
+  saveAll();
+  closeEditPoopModal();
+  renderHistory();
+}
+function deleteEditPoop(){
+  if(!requireSync()) return;
+  if(!confirm('Naozaj vymazať tento záznam?')) return;
+  pees = pees.filter(function(pe){ return !(pe.fromPoop && (pe.poopId === editPoopId || pe.timestamp === (poops.find(function(x){return x.id===editPoopId})||{}).timestamp)); });
+  poops = poops.filter(function(x){ return x.id !== editPoopId; });
+  saveAll();
+  closeEditPoopModal();
+  renderHistory();
 }
 
 // ===== SETUP =====
@@ -976,6 +1852,7 @@ function renderSettings(){
     document.getElementById('settings-name').value = profile.name || '';
     document.getElementById('settings-birth').value = profile.birthDate || '';
   }
+  renderSyncUI();
 }
 
 function saveSettings(){
@@ -989,57 +1866,68 @@ function saveSettings(){
 }
 
 function exportData(){
-  const data = JSON.stringify({profile, feeds, weights}, null, 2);
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(data).then(()=>alert('Dáta skopírované do schránky!')).catch(()=>fallbackCopy(data));
-  } else {
-    fallbackCopy(data);
-  }
+  var data = JSON.stringify({profile, feeds, weights, poops, pees}, null, 2);
+  var blob = new Blob([data], {type: 'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var date = new Date().toISOString().slice(0,10);
+  a.download = 'krmenie-zaloha-'+date+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-function fallbackCopy(text){
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-  alert('Dáta skopírované do schránky!');
+function importFile(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      var data = JSON.parse(ev.target.result);
+      if(!data.profile && !data.feeds){ alert('Neplatný súbor zálohy.'); return; }
+      if(!confirm('Nahrať zálohu? Aktuálne dáta budú nahradené.')) return;
+      if(data.profile) profile = data.profile;
+      if(data.feeds) feeds = data.feeds;
+      if(data.weights) weights = data.weights;
+      if(data.poops) poops = data.poops;
+      if(data.pees) pees = data.pees;
+      saveAll();
+      alert('Záloha nahraná!');
+      showView('home');
+    } catch(err){
+      alert('Chyba: neplatný formát súboru.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 }
 
-function showImport(){
-  const area = document.getElementById('import-area');
-  area.style.display = area.style.display === 'none' ? 'block' : 'none';
-}
-
-function importData(){
-  try{
-    const raw = document.getElementById('import-input').value.trim();
-    const data = JSON.parse(raw);
-    if(data.profile) profile = data.profile;
-    if(data.feeds) feeds = data.feeds;
-    if(data.weights) weights = data.weights;
-    saveAll();
-    alert('Dáta importované!');
-    document.getElementById('import-area').style.display = 'none';
-    showView('home');
-  }catch(e){
-    alert('Chyba: neplatný formát dát.');
-  }
+function toggleDangerZone(){
+  var dz = document.getElementById('danger-zone');
+  dz.style.display = dz.style.display === 'none' ? 'block' : 'none';
 }
 
 function resetData(){
   if(!confirm('Naozaj chcete vymazať všetky dáta? Táto akcia sa nedá vrátiť.')) return;
   if(!confirm('Ste si istý? Všetky kŕmenia a váhy budú vymazané.')) return;
+  var name = prompt('Pre potvrdenie napíšte meno dieťaťa:');
+  if(!name || name.trim().toLowerCase() !== (profile && profile.name || '').toLowerCase()){ alert('Nesprávne meno. Vymazanie zrušené.'); return; }
+  disconnectSync();
   localStorage.removeItem('fp_profile');
   localStorage.removeItem('fp_feeds');
   localStorage.removeItem('fp_weights');
+  localStorage.removeItem('fp_poops');
+  localStorage.removeItem('fp_pees');
   localStorage.removeItem('fp_preloaded');
+  localStorage.removeItem('fp_sync_code');
+  localStorage.removeItem('fp_last_modified');
   profile = null;
   feeds = [];
   weights = [];
+  poops = [];
+  pees = [];
   showView('setup');
 }
 
@@ -1104,6 +1992,10 @@ function init(){
   profile = LS.get('fp_profile', null);
   feeds = LS.get('fp_feeds', []);
   weights = LS.get('fp_weights', []);
+  poops = LS.get('fp_poops', []);
+  pees = LS.get('fp_pees', []);
+  if(profile && profile.bedtime) LS.set('fp_bedtime', profile.bedtime);
+  initFirebase();
   if(!profile || !profile.setupDone) showView('setup');
   else showView('home');
 }
@@ -1114,9 +2006,422 @@ setInterval(()=>{
 }, 60000);
 
 // Register service worker
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch(()=>{});
+
+// Auto-reconnect Firebase when coming back online
+window.addEventListener('online', function(){
+  if(syncCode && !syncRef) initFirebase();
+});
+
+// ===== FEED PLAN =====
+function saveBedtime(){
+  var val = document.getElementById('bedtime-input').value;
+  if(val){
+    LS.set('fp_bedtime', val);
+    if(profile){ profile.bedtime = val; saveAll(); }
+  }
+  renderFeedPlan();
+}
+
+function openFeedPlan(){
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  document.getElementById('bedtime-input').value = bedtime;
+  renderFeedPlan();
+  document.getElementById('feed-plan-modal').classList.add('active');
+}
+
+function closeFeedPlan(){
+  document.getElementById('feed-plan-modal').classList.remove('active');
+}
+
+function renderFeedPlan(){
+  var s = getSuggestion();
+  var g = s.g;
+  var ageDays = getAgeDays();
+  var w = getLatestWeight();
+  var dailyTarget = s.dailyTarget;
+  var nightAmount = 150;
+  var nightEnd = 6; // 06:00
+
+  var bedtime = LS.get('fp_bedtime', '20:00');
+  var btParts = bedtime.split(':');
+  var btH = parseInt(btParts[0]), btM = parseInt(btParts[1] || 0);
+  var btMins = btH * 60 + btM;
+
+  var now = new Date();
+  var nowMins = now.getHours() * 60 + now.getMinutes();
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var todayFeeds = feeds.filter(function(f){ return f.timestamp >= todayStart; })
+    .sort(function(a,b){ return a.timestamp - b.timestamp; });
+
+  // ===== ANALYZE BABY'S ACTUAL RHYTHM (last 7 days) =====
+  var weekAgo = Date.now() - 7 * 86400000;
+  var recentFeeds = feeds.filter(function(f){ return f.timestamp >= weekAgo; })
+    .sort(function(a,b){ return a.timestamp - b.timestamp; });
+
+  // Calculate average day interval and night interval
+  var dayIntervals = [], nightIntervals = [];
+  for(var i = 1; i < recentFeeds.length; i++){
+    var prev = new Date(recentFeeds[i-1].timestamp);
+    var curr = new Date(recentFeeds[i].timestamp);
+    var diffMins = (curr - prev) / 60000;
+    if(diffMins < 30 || diffMins > 600) continue; // skip outliers
+    var prevH = prev.getHours();
+    var isNightGap = (prevH >= btH || prevH < nightEnd);
+    if(isNightGap) nightIntervals.push(diffMins);
+    else dayIntervals.push(diffMins);
+  }
+
+  var avgDayInterval = dayIntervals.length > 0
+    ? Math.round(dayIntervals.reduce(function(a,b){return a+b;},0) / dayIntervals.length)
+    : (ageDays <= 60 ? 180 : 210); // fallback: 3h or 3.5h
+  var avgNightInterval = nightIntervals.length > 0
+    ? Math.round(nightIntervals.reduce(function(a,b){return a+b;},0) / nightIntervals.length)
+    : 270; // fallback: 4.5h
+
+  // Clamp to reasonable ranges
+  avgDayInterval = Math.max(150, Math.min(avgDayInterval, 270)); // 2.5h-4.5h
+  avgNightInterval = Math.max(210, Math.min(avgNightInterval, 360)); // 3.5h-6h
+
+  // Count typical night feeds from real data
+  var nightFeedCounts = [];
+  for(var d = 0; d < 7; d++){
+    var dayStart = new Date(now); dayStart.setDate(dayStart.getDate()-d);
+    dayStart.setHours(btH, btM, 0, 0);
+    var dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+    dayEnd.setHours(nightEnd, 0, 0, 0);
+    var nightCount = recentFeeds.filter(function(f){
+      return f.timestamp >= dayStart.getTime() && f.timestamp < dayEnd.getTime();
+    }).length;
+    if(d > 0 || nowMins > nightEnd * 60) nightFeedCounts.push(nightCount); // skip today if still morning
+  }
+  var avgNightFeeds = nightFeedCounts.length > 0
+    ? Math.round(nightFeedCounts.reduce(function(a,b){return a+b;},0) / nightFeedCounts.length)
+    : 2;
+  avgNightFeeds = Math.max(1, Math.min(avgNightFeeds, 3));
+
+  var alreadyConsumed = todayFeeds.reduce(function(s,f){ return s + f.amount; }, 0);
+
+  // ===== BUILD PLAN =====
+  var plan = [];
+
+  // Add today's actual feeds
+  todayFeeds.forEach(function(f){
+    var fd = new Date(f.timestamp);
+    var h = fd.getHours(), m = fd.getMinutes();
+    var mins = h * 60 + m;
+    plan.push({
+      hour: h, min: m, mins: mins,
+      time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+      amount: f.amount, type: f.type,
+      isNight: h >= btH || h < nightEnd,
+      done: true
+    });
+  });
+
+  // Night plan: bedtime feed + avgNightFeeds at night interval
+  // Subtract already-done night feeds from today
+  var doneNightFeeds = todayFeeds.filter(function(f){
+    var fh = new Date(f.timestamp).getHours();
+    return fh >= btH || fh < nightEnd;
+  }).length;
+  var futureNightCount = Math.max(0, (avgNightFeeds + 1) - doneNightFeeds); // +1 for bedtime
+  var nightReserve = futureNightCount * nightAmount;
+
+  // Day budget
+  var dayBudget = Math.max(0, dailyTarget - alreadyConsumed - nightReserve);
+
+  // Find next feed time based on last actual feed
+  var allSorted = [...feeds].sort(function(a,b){ return b.timestamp - a.timestamp; });
+  var lastFeed = allSorted[0];
+  var lastFeedMins = null;
+  if(lastFeed){
+    var lfd = new Date(lastFeed.timestamp);
+    if(lfd.toDateString() === now.toDateString())
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes();
+    else
+      lastFeedMins = lfd.getHours() * 60 + lfd.getMinutes() - 1440;
+  }
+  var nextMins;
+  if(lastFeedMins !== null && lastFeedMins + avgDayInterval > nowMins)
+    nextMins = lastFeedMins + avgDayInterval;
+  else
+    nextMins = nowMins + 15;
+
+  // --- Force bedtime slot ---
+  var btSlotDone = plan.some(function(p){ return Math.abs(p.mins - btMins) < 45; });
+  if(!btSlotDone && btMins > nowMins){
+    plan.push({
+      hour: btH, min: btM, mins: btMins,
+      time: String(btH).padStart(2,'0') + ':' + String(btM).padStart(2,'0'),
+      amount: nightAmount, type: 'ar', isNight: true,
+      done: false, isBedtime: true
+    });
+  }
+
+  // --- Day feeds: fill slots before bedtime ---
+  var daySlots = [];
+  var scanMins = nextMins;
+  while(scanMins < btMins){
+    var sMins = scanMins >= 1440 ? scanMins - 1440 : scanMins;
+    var sh = Math.floor(sMins / 60) % 24;
+    var sm = sMins % 60;
+    sm = Math.round(sm / 15) * 15; if(sm >= 60){ sh++; sm = 0; } sh = sh % 24;
+    var slotMins = sh * 60 + sm;
+    var tooClose = plan.some(function(p){ return Math.abs(p.mins - slotMins) < 30; });
+    if(!tooClose && slotMins > nowMins - 10 && slotMins < btMins - 30){
+      daySlots.push({hour: sh, min: sm, mins: slotMins});
+    }
+    scanMins += avgDayInterval;
+  }
+
+  // Distribute day budget evenly, min 60ml per feed
+  var minFeed = 60;
+  while(daySlots.length > 1 && dayBudget / daySlots.length < minFeed) daySlots.pop();
+  if(daySlots.length > 0 && dayBudget < minFeed) daySlots = [];
+
+  var dayFeedAmount = daySlots.length > 0 ? Math.round(dayBudget / daySlots.length / 30) * 30 : 0;
+  dayFeedAmount = Math.min(dayFeedAmount, g.max);
+
+  var dayRemaining = dayBudget;
+  daySlots.forEach(function(slot, idx){
+    var amount = (idx === daySlots.length - 1) ? dayRemaining : Math.min(dayFeedAmount, dayRemaining);
+    amount = Math.max(minFeed, Math.min(amount, g.max));
+    amount = Math.min(amount, dayRemaining);
+    if(amount >= minFeed){
+      plan.push({
+        hour: slot.hour, min: slot.min, mins: slot.mins,
+        time: String(slot.hour).padStart(2,'0') + ':' + String(slot.min).padStart(2,'0'),
+        amount: amount, type: 'formula', isNight: false,
+        done: false, isBedtime: false
+      });
+      dayRemaining = Math.max(0, dayRemaining - amount);
+    }
+  });
+
+  // --- Night feeds: at night interval after bedtime ---
+  var nightSlotTime = btMins + avgNightInterval;
+  var nightAdded = 0;
+  var maxNight = Math.max(0, avgNightFeeds - doneNightFeeds);
+  while(nightAdded < maxNight && nightSlotTime < 1440 + nightEnd * 60){
+    var feedMins = nightSlotTime >= 1440 ? nightSlotTime - 1440 : nightSlotTime;
+    var h = Math.floor(feedMins / 60) % 24;
+    var m = feedMins % 60;
+    m = Math.round(m / 15) * 15; if(m >= 60){ h++; m = 0; } h = h % 24;
+    var mins = h * 60 + m;
+    var tooClose = plan.some(function(p){ return Math.abs(p.mins - mins) < 45; });
+    if(!tooClose){
+      plan.push({
+        hour: h, min: m, mins: mins,
+        time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+        amount: nightAmount, type: 'ar', isNight: true,
+        done: false, isBedtime: false
+      });
+      nightAdded++;
+    }
+    nightSlotTime += avgNightInterval;
+  }
+
+  // Sort
+  plan.sort(function(a,b){
+    var am = a.mins < nightEnd * 60 && !a.done ? a.mins + 1440 : a.mins;
+    var bm = b.mins < nightEnd * 60 && !b.done ? b.mins + 1440 : b.mins;
+    return am - bm;
+  });
+
+  // ===== SUMMARY =====
+  var totalPlan = plan.reduce(function(s,p){ return s + p.amount; }, 0);
+  var futureDayFeeds = plan.filter(function(p){ return !p.isNight && !p.done; });
+  var futureNightFeeds = plan.filter(function(p){ return p.isNight && !p.done; });
+  var summaryHtml = '<div class="card-title">Plán pre ' + (profile ? profile.name : 'bábätko') + '</div>';
+  summaryHtml += '<div style="font-size:14px;margin-bottom:4px"><b>' + plan.length + ' kŕmení</b></div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Zostáva: ☀️ ' + futureDayFeeds.length + '× mlieko + 🌙 ' + futureNightFeeds.length + '× AR</div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Zjedené: <b>' + alreadyConsumed + ' ml</b> | Deň budget: <b>' + dayBudget + ' ml</b></div>';
+  summaryHtml += '<div style="font-size:13px;color:var(--muted)">Celkom plán: <b>' + totalPlan + ' ml</b> / cieľ ' + dailyTarget + ' ml</div>';
+  if(w) summaryHtml += '<div style="font-size:12px;color:var(--muted);margin-top:4px">Váha: ' + w.toFixed(1) + ' kg → ' + Math.round(w*150) + ' ml/deň</div>';
+  summaryHtml += '<div style="font-size:11px;color:var(--muted);margin-top:6px;opacity:0.6">Rytmus: deň ~' + Math.round(avgDayInterval) + ' min | noc ~' + Math.round(avgNightInterval) + ' min (z dát)</div>';
+  document.getElementById('feed-plan-summary').innerHTML = summaryHtml;
+
+  // ===== PLAN LIST =====
+  var listHtml = '';
+  var nextFound = false;
+  plan.forEach(function(p){
+    var isNext = !p.done && !nextFound;
+    if(isNext) nextFound = true;
+
+    var cls = 'plan-item';
+    if(p.done) cls += ' done';
+    if(isNext) cls += ' next';
+    if(p.isNight && !p.done) cls += ' plan-night';
+
+    listHtml += '<div class="' + cls + '">';
+    listHtml += '<span class="plan-time">' + p.time + '</span>';
+    listHtml += '<span class="plan-detail">';
+    listHtml += '<b>' + p.amount + ' ml</b>';
+    if(p.isBedtime) listHtml += '<span class="plan-type"> 🛏️ AR — spánok</span>';
+    else listHtml += '<span class="plan-type"> ' + (p.isNight ? '🌙 AR' : '☀️ Mlieko') + '</span>';
+    listHtml += '</span>';
+    if(p.done) listHtml += '<span style="color:var(--green)">✓</span>';
+    if(isNext) listHtml += '<span style="color:var(--green);font-size:12px;font-weight:700">ĎALŠIE</span>';
+    listHtml += '</div>';
+  });
+  document.getElementById('feed-plan-list').innerHTML = listHtml;
+}
+
+// ===== CELEBRATIONS =====
+var POOP_MESSAGES = [
+  'Olivke sa teraz bude určite lepšie! 🎉',
+  'Olivke sa podarilo krásne hovienko! 👏',
+  'Bravo Olivka! Bruško je spokojné! 🌟',
+  'Toto bolo majstrovské dielo! 🏆',
+  'Olivka — profesionálna kakačka! 💪',
+  'Hovienko dňa! Gratulujem! 🥇',
+  'Bruško prázdne, úsmev plný! 😄',
+  'Olivka to zvládla ako šampiónka! 🎖️',
+  'Ďalšie úspešné hovienko v kolekcii! 📚',
+  'Plienka padla, Olivka žiari! ✨',
+  'Toto hovienko si zaslúži potlesk! 👏👏👏',
+  'Olivka kaká, maminka sa smeje! 😂',
+  'Nová plienka, nový začiatok! 🌈',
+  'Rekordné hovienko! Tak držať! 🚀',
+  'Olivkin žalúdok ďakuje! 🙏',
+  'Kto tu krásne kaká? Olivka! 👸',
+  'Výborne! Jedno hovienko bližšie k nočnému spánku! 😴',
+  'Olivka: 1, Plienka: 0. Víťazstvo! ⚽',
+  'Toto hovienko rozvoniavalo láskou! 💕',
+  'Hovienková šou pokračuje! 🎭',
+  'Olivka — kráľovná kakošáku! 👑',
+  'Perfektné načasovanie! Olivka je génius! 🧠',
+  'Bruško šťastné, rodičia šťastní! 🥰',
+  'Olivka to dala! Plienka splnená! 📋',
+  'Olivka povedala: to bol výborný obed! 🍽️',
+  'Kakošák in the plienkošák! 🎤🔥',
+  'Plienkošák hlási: nová zásielka! 📦',
+  'Kakošák level: expert! 🎮',
+  'Olivka a jej kakošák — nerozlučná dvojka! 🤝',
+  'Plienkošák je plný, ale Olivka je šťastná! 🎒'
+];
+
+var FEED_MESSAGES = [
+  'Olivka papala ako šampiónka! 🏆',
+  'Mňam mňam! Olivka si pochutila! 😋',
+  'Fľaška prázdna, bruško plné! 🍼',
+  'Olivka rastie do krásy! 🌸',
+  'Výborne! Každý mililiter sa počíta! 💪',
+  'Olivka si dala poriadnu dávku! 👏',
+  'Mliečna kráľovná Olivka! 👸',
+  'Olivka to vypila na ex! 🥛',
+  'Ďalšie kŕmenie, ďalší úspech! ⭐',
+  'Super maminka, super bábätko! 🥰',
+  'Olivka ďakuje za jedlo! 🙏',
+  'To šlo ako po masle! 🧈',
+  'Olivkin žalúdoček je spokojný! 😊',
+  'Fľaštička číslo... veľa! A stále ide! 🚀',
+  'Olivka pije, svet sa točí! 🌍',
+  'Výborný obed, Olivka! 🍽️',
+  'Mlieko je najlepší nápoj! Olivka súhlasí! 🥇',
+  'Papaj, Olivka, papaj! 🎶',
+  'Toto bolo rýchle kŕmenie! Nový rekord? ⏱️',
+  'Olivka si doplnila energiu! ⚡',
+  'Každé kŕmenie je krok k veľkej Olivke! 👣',
+  'Olivka: mlieko prosím! Maminka: nech sa páči! 💝',
+  'Bruško plné = šťastná Olivka! 🎉',
+  'A je to v brušteku! Výborne! 🎯',
+  'Olivka jedla ako veľká! 🌟',
+  'Mliečko zmizlo ako mágia! 🪄',
+  'Olivka si zaslúži pochvalu! Papala krásne! 💖',
+  'To bolo dobré, Olivka? Samozrejme! 😄',
+  'Olivkin denný plán: piť mlieko a byť krásna! ✨',
+  'Fľaška K.O.! Olivka vyhráva! 🥊',
+  'Kto tu krásne papá? Olivka! 🍼',
+  'Olivka rastie každým dúškom! 📈',
+  'Perfektné kŕmenie! Maminka je hrdá! 🏅',
+  'Olivka si dala mliečko na zdravie! 💚',
+  'Ďalší mililiter, ďalší úsmev! 😁',
+  'Olivka: najlepšia zákazníčka mliečneho baru! 🍹',
+  'To bolo parádne kŕmenie! 🎊',
+  'Olivka papala a svet je krajší! 🌈',
+  'Výborne, Olivka! Mliečko je tvoj superschopnosť! 🦸‍♀️',
+  'Olivka si pochutila na každej kvapke! 💧',
+  'Noc alebo deň — Olivka vždy papá s chuťou! 🌙',
+  'Olivkin žalúdok: ďakujem, bolo výborné! 😌',
+  'Mlieko + Olivka = dokonalý pár! 💑',
+  'Olivka dnes papá ako profík! 🎓',
+  'Super dávka! Olivka je spokojná! 😍',
+  'A fľaška je fuč! Bravo Olivka! 🎈',
+  'Olivka vypila mliečko — svet je v poriadku! 🌞',
+  'Tento dúšok bol za maminku, tento za ocka! 👨‍👩‍👧',
+  'Olivka: som plná, ďakujem! Zatiaľ! 👋',
+  'Kŕmenie splnené! Čo bude ďalej? Spánok? 😴'
+];
+
+var PEE_MESSAGES = [
+  'Olivka si uľavila! Čistá plienka ide! 🧷',
+  'Ciky ciky! Olivka je čistotná! ✨',
+  'Nová plienka, nový pocit! 🌸',
+  'Olivka: plienku prosím vymeniť! Hotovo! ✅',
+  'Čistá Olivka = šťastná Olivka! 😊',
+  'Plienka vymenená, pohodička! 🛋️',
+  'Olivka si oddýchne v čistom! 💫',
+  'Výmena plienky — rýchlejšia ako blesk! ⚡',
+  'Olivka ďakuje za svieži pocit! 🙏',
+  'Cikošák úspešne splnený! 🎯',
+  'Olivka je zase čerstvá ako kvietok! 🌺',
+  'Plienková výmena č. ??? — a stále s úsmevom! 😅',
+  'Olivkin zadoček ďakuje! 🍑',
+  'Čistota je základ! Olivka to vie! 🧼',
+  'Ďalšia plienka do zbierky! 📊',
+  'Olivka: hydratácia funguje! 💧',
+  'Čiky splnené, ideme ďalej! 🚶‍♀️',
+  'Suchá Olivka je najlepšia Olivka! 🌟',
+  'Plienka zmenená v rekordnom čase! ⏱️',
+  'Olivka je kráľovná čistoty! 👑'
+];
+
+var CONFETTI_ITEMS = ['🎉','⭐','🌟','✨','🎊','💫','🎈','🥳','🎶'];
+
+function showCelebration(emoji, messages, confettiExtra){
+  var cele = document.getElementById('poop-celebration');
+  var msg = messages[Math.floor(Math.random() * messages.length)];
+  document.getElementById('poop-cele-msg').textContent = msg;
+  document.getElementById('poop-cele-emoji').textContent = emoji;
+  // Reset emoji animation
+  var emojiEl = document.getElementById('poop-cele-emoji');
+  emojiEl.style.animation = 'none';
+  emojiEl.offsetHeight;
+  emojiEl.style.animation = '';
+
+  // Remove old confetti
+  cele.querySelectorAll('.poop-confetti').forEach(function(c){ c.remove(); });
+
+  // Add confetti
+  var items = CONFETTI_ITEMS.concat(confettiExtra || []);
+  for(var i = 0; i < 20; i++){
+    var c = document.createElement('div');
+    c.className = 'poop-confetti';
+    c.textContent = items[Math.floor(Math.random() * items.length)];
+    c.style.left = Math.random() * 100 + '%';
+    c.style.top = '-20px';
+    c.style.animationDelay = (Math.random() * 0.8) + 's';
+    c.style.animationDuration = (1.5 + Math.random()) + 's';
+    cele.appendChild(c);
+  }
+
+  cele.classList.add('active');
+  setTimeout(function(){ closeCelebration(); }, 5000);
+}
+
+function closeCelebration(){
+  document.getElementById('poop-celebration').classList.remove('active');
+}
 
 init();
 </script>
+
+<div class="poop-celebration" id="poop-celebration" onclick="closeCelebration()">
+  <div class="poop-emoji" id="poop-cele-emoji">💩</div>
+  <div class="poop-msg" id="poop-cele-msg"></div>
+</div>
+
 </body>
 </html>
